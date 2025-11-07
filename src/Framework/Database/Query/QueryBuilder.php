@@ -5,70 +5,88 @@ declare(strict_types=1);
 namespace Framework\Database\Query;
 
 use Framework\Database\ConnectionInterface;
+use Framework\Database\Query\RowCollection;
 
 /**
- * SQL Query Builder with fluent interface.
+ * SQL Query Builder with a fluent interface.
  *
- * Features:
- * - Fluent method chaining
- * - Parameter binding for security
- * - Support for complex WHERE clauses
- * - JOIN support
- * - Aggregation functions
- * - Subquery support
+ * Responsibilities:
+ * - Compose SQL SELECT statements with WHERE / JOIN / ORDER / LIMIT / OFFSET
+ * - Bind parameters to prevent SQL injection
+ * - Provide helpers for aggregate queries (count) and existence checks
+ * - Execute and return typed RowCollection or single row
+ *
+ * Design notes:
+ * - This builder is stateless with respect to the connection; state only holds the
+ *   query parts (table/columns/wheres/joins/etc.). Call newQuery() for a clean builder.
  */
 class QueryBuilder implements QueryBuilderInterface
 {
     /**
-     * @var string|null Table name.
+     * Target table name.
+     *
+     * @var string|null
      */
     private ?string $table = null;
 
     /**
-     * @var array<string> SELECT columns.
+     * Selected columns.
+     *
+     * @var array<string>
      */
     private array $columns = ['*'];
 
     /**
-     * @var array<array> WHERE clauses.
+     * WHERE clauses (internal representation).
+     *
+     * @var array<array>
      */
     private array $wheres = [];
 
     /**
-     * @var array<array> JOIN clauses.
+     * JOIN clauses (internal representation).
+     *
+     * @var array<array>
      */
     private array $joins = [];
 
     /**
-     * @var array<array> ORDER BY clauses.
+     * ORDER BY clauses (internal representation).
+     *
+     * @var array<array>
      */
     private array $orders = [];
 
     /**
-     * @var int|null LIMIT value.
+     * LIMIT value.
+     *
+     * @var int|null
      */
     private ?int $limit = null;
 
     /**
-     * @var int|null OFFSET value.
+     * OFFSET value.
+     *
+     * @var int|null
      */
     private ?int $offset = null;
 
     /**
-     * @var array<mixed> Query bindings.
+     * Positional bindings for prepared statements.
+     *
+     * @var array<mixed>
      */
     private array $bindings = [];
 
     /**
-     * @param ConnectionInterface $connection Database connection.
+     * @param ConnectionInterface $connection Database connection used to execute statements.
      */
     public function __construct(
         private ConnectionInterface $connection
-    ) {
-    }
+    ) {}
 
     /**
-     * {@inheritdoc}
+     * Set the working table for the query.
      */
     public function table(string $table): self
     {
@@ -77,7 +95,11 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Set selected columns.
+     *
+     * Accepts either an array of columns or varargs: select('id', 'name').
+     *
+     * @param string|array<int,string> $columns
      */
     public function select(string|array $columns = ['*']): self
     {
@@ -86,7 +108,15 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Add a basic WHERE clause.
+     *
+     * Supports both:
+     * - where('col', '=', 10)
+     * - where('col', 10)    // operator defaults to '='
+     *
+     * @param string $column
+     * @param mixed  $operator
+     * @param mixed  $value
      */
     public function where(string $column, mixed $operator, mixed $value = null): self
     {
@@ -110,7 +140,9 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Add a basic OR WHERE clause.
+     *
+     * Same semantics as where(), joined with OR.
      */
     public function orWhere(string $column, mixed $operator, mixed $value = null): self
     {
@@ -133,7 +165,10 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Add a WHERE IN clause.
+     *
+     * @param string $column
+     * @param array<int,mixed> $values
      */
     public function whereIn(string $column, array $values): self
     {
@@ -152,7 +187,7 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Add a WHERE IS NULL clause.
      */
     public function whereNull(string $column): self
     {
@@ -166,10 +201,7 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * Add a WHERE NOT NULL clause.
-     *
-     * @param string $column Column name.
-     * @return self
+     * Add a WHERE IS NOT NULL clause.
      */
     public function whereNotNull(string $column): self
     {
@@ -183,7 +215,9 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Append an ORDER BY clause.
+     *
+     * @param string $direction 'ASC' or 'DESC' (case-insensitive)
      */
     public function orderBy(string $column, string $direction = 'ASC'): self
     {
@@ -196,7 +230,7 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Set LIMIT.
      */
     public function limit(int $limit): self
     {
@@ -205,7 +239,7 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Set OFFSET.
      */
     public function offset(int $offset): self
     {
@@ -214,7 +248,9 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Add a JOIN clause.
+     *
+     * @param string $type One of: INNER, LEFT, RIGHT (case-insensitive)
      */
     public function join(string $table, string $first, string $operator, string $second, string $type = 'INNER'): self
     {
@@ -230,13 +266,7 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * Add a LEFT JOIN clause.
-     *
-     * @param string $table Table to join.
-     * @param string $first First column.
-     * @param string $operator Operator.
-     * @param string $second Second column.
-     * @return self
+     * Convenience LEFT JOIN.
      */
     public function leftJoin(string $table, string $first, string $operator, string $second): self
     {
@@ -244,13 +274,7 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * Add a RIGHT JOIN clause.
-     *
-     * @param string $table Table to join.
-     * @param string $first First column.
-     * @param string $operator Operator.
-     * @param string $second Second column.
-     * @return self
+     * Convenience RIGHT JOIN.
      */
     public function rightJoin(string $table, string $first, string $operator, string $second): self
     {
@@ -258,26 +282,54 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Execute the built SELECT and return a typed RowCollection.
+     *
+     * @return RowCollection<int, array<string,mixed>>
      */
-    public function get(): array
+    public function get(): RowCollection
     {
-        $sql = $this->toSql();
-        return $this->connection->select($sql, $this->bindings);
+        $sql  = $this->toSql();
+        $rows = $this->connection->select($sql, $this->bindings); // array<array>
+        return new RowCollection($rows);
     }
 
     /**
-     * {@inheritdoc}
+     * Execute the built SELECT with LIMIT 1 and return the first row or null.
+     *
+     * @return array<string,mixed>|null
      */
     public function first(): ?array
     {
         $this->limit(1);
-        $results = $this->get();
-        return $results[0] ?? null;
+        return $this->get()->first() ?? null;
     }
 
     /**
-     * {@inheritdoc}
+     * Alias of get() for a more collection-oriented naming.
+     *
+     * @return RowCollection<int, array<string,mixed>>
+     */
+    public function collect(): RowCollection
+    {
+        return $this->get();
+    }
+
+    /**
+     * Backward-compatible helper to return raw array results.
+     *
+     * @return array<int, array<string,mixed>>
+     */
+    public function getArray(): array
+    {
+        return $this->get()->all();
+    }
+
+    /**
+     * Find a row by primary key column.
+     *
+     * @param int|string $id
+     * @param string     $column Primary key column (default: 'id').
+     * @return array<string,mixed>|null
      */
     public function find(int|string $id, string $column = 'id'): ?array
     {
@@ -285,7 +337,9 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Insert a single row and return the last inserted id.
+     *
+     * @param array<string,mixed> $data
      */
     public function insert(array $data): int
     {
@@ -305,7 +359,10 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Update rows matching the WHERE clauses.
+     *
+     * @param array<string,mixed> $data
+     * @return int Number of affected rows.
      */
     public function update(array $data): int
     {
@@ -331,7 +388,9 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Delete rows matching the WHERE clauses.
+     *
+     * @return int Number of affected rows.
      */
     public function delete(): int
     {
@@ -345,10 +404,9 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * Get count of records.
+     * Count rows for the current query.
      *
-     * @param string $column Column to count (default: *).
-     * @return int
+     * @param string $column Defaults to '*'.
      */
     public function count(string $column = '*'): int
     {
@@ -363,9 +421,7 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * Check if any records exist.
-     *
-     * @return bool
+     * Whether at least one row exists for the current query.
      */
     public function exists(): bool
     {
@@ -373,7 +429,7 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Compile the SELECT statement into raw SQL.
      */
     public function toSql(): string
     {
@@ -390,7 +446,9 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Return the current parameter bindings in positional order.
+     *
+     * @return array<mixed>
      */
     public function getBindings(): array
     {
@@ -399,8 +457,6 @@ class QueryBuilder implements QueryBuilderInterface
 
     /**
      * Compile JOIN clauses.
-     *
-     * @return string
      */
     private function compileJoins(): string
     {
@@ -426,8 +482,6 @@ class QueryBuilder implements QueryBuilderInterface
 
     /**
      * Compile WHERE clauses.
-     *
-     * @return string
      */
     private function compileWheres(): string
     {
@@ -441,11 +495,11 @@ class QueryBuilder implements QueryBuilderInterface
             $boolean = $index === 0 ? 'WHERE' : $where['boolean'];
 
             $sql .= match ($where['type']) {
-                'basic' => sprintf(' %s %s %s ?', $boolean, $where['column'], $where['operator']),
-                'in' => sprintf(' %s %s IN (%s)', $boolean, $where['column'], implode(', ', array_fill(0, count($where['values']), '?'))),
-                'null' => sprintf(' %s %s IS NULL', $boolean, $where['column']),
+                'basic'    => sprintf(' %s %s %s ?', $boolean, $where['column'], $where['operator']),
+                'in'       => sprintf(' %s %s IN (%s)', $boolean, $where['column'], implode(', ', array_fill(0, count($where['values']), '?'))),
+                'null'     => sprintf(' %s %s IS NULL', $boolean, $where['column']),
                 'not_null' => sprintf(' %s %s IS NOT NULL', $boolean, $where['column']),
-                default => ''
+                default    => ''
             };
         }
 
@@ -454,8 +508,6 @@ class QueryBuilder implements QueryBuilderInterface
 
     /**
      * Compile ORDER BY clauses.
-     *
-     * @return string
      */
     private function compileOrders(): string
     {
@@ -473,8 +525,6 @@ class QueryBuilder implements QueryBuilderInterface
 
     /**
      * Compile LIMIT clause.
-     *
-     * @return string
      */
     private function compileLimit(): string
     {
@@ -483,8 +533,6 @@ class QueryBuilder implements QueryBuilderInterface
 
     /**
      * Compile OFFSET clause.
-     *
-     * @return string
      */
     private function compileOffset(): string
     {
@@ -492,9 +540,7 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * Create a new query builder instance.
-     *
-     * @return self
+     * Spawn a fresh QueryBuilder sharing the same connection.
      */
     public function newQuery(): self
     {

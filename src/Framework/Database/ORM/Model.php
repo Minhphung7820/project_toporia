@@ -6,75 +6,103 @@ namespace Framework\Database\ORM;
 
 use Framework\Database\ConnectionInterface;
 use Framework\Database\Query\QueryBuilder;
+use Framework\Database\ORM\ModelCollection;
+use Framework\Database\Query\RowCollection;
 
 /**
- * Base ORM Model with Active Record pattern.
+ * Base Active Record model.
  *
- * Features:
- * - Active Record pattern (save, delete, refresh)
- * - Query builder integration
- * - Automatic timestamps (created_at, updated_at)
- * - Attribute casting
- * - Mass assignment protection
- * - Dirty checking
- * - Event hooks (creating, created, updating, updated, deleting, deleted)
+ * Responsibilities:
+ * - Persistence (save / delete / refresh)
+ * - QueryBuilder integration (`static::query()`)
+ * - Timestamp management (created_at, updated_at)
+ * - Attribute casting and mass-assignment protection
+ * - Dirty checking via original snapshot
+ * - Simple lifecycle hooks (creating, created, updating, updated, deleting, deleted)
  *
- * @property mixed $id Primary key
+ * Notes:
+ * - This class intentionally follows an Eloquent-like API surface while remaining framework-agnostic.
+ * - Collections returned by `all()` / `get()` are `ModelCollection<static>`.
+ *
+ * @property mixed $id Primary key (dynamic attribute)
  */
 abstract class Model implements ModelInterface
 {
     /**
-     * @var string Table name (override in child class).
+     * Database table name (override in child class).
+     *
+     * @var string
      */
     protected static string $table = '';
 
     /**
-     * @var string Primary key column name.
+     * Primary key column name.
+     *
+     * @var string
      */
     protected static string $primaryKey = 'id';
 
     /**
-     * @var bool Enable automatic timestamps.
+     * Whether timestamp columns should be automatically managed.
+     *
+     * @var bool
      */
     protected static bool $timestamps = true;
 
     /**
-     * @var array<string> Fillable attributes for mass assignment.
+     * Whitelist of attributes that can be mass-assigned.
+     * If non-empty, only keys listed here are fillable.
+     *
+     * @var array<string>
      */
     protected static array $fillable = [];
 
     /**
-     * @var array<string> Guarded attributes (opposite of fillable).
+     * Blacklist of attributes that cannot be mass-assigned.
+     * If ['*'] is present, mass-assignment is globally disabled unless listed in $fillable.
+     *
+     * @var array<string>
      */
     protected static array $guarded = ['*'];
 
     /**
-     * @var array<string, string> Attribute casting (e.g., ['is_active' => 'bool']).
+     * Attribute casting map. Example: ['is_active' => 'bool'].
+     * Supported types: int, float, string, bool, array, json, date.
+     *
+     * @var array<string, string>
      */
     protected static array $casts = [];
 
     /**
-     * @var array<string, mixed> Model attributes.
+     * Current attribute bag.
+     *
+     * @var array<string, mixed>
      */
     private array $attributes = [];
 
     /**
-     * @var array<string, mixed> Original attributes (for dirty checking).
+     * Snapshot of attributes used for dirty checking.
+     *
+     * @var array<string, mixed>
      */
     private array $original = [];
 
     /**
-     * @var bool Whether model exists in database.
+     * Whether the model currently exists in the database.
+     *
+     * @var bool
      */
     private bool $exists = false;
 
     /**
-     * @var ConnectionInterface|null Database connection.
+     * Shared database connection instance.
+     *
+     * @var ConnectionInterface|null
      */
     private static ?ConnectionInterface $connection = null;
 
     /**
-     * @param array $attributes Initial attributes.
+     * @param array<string,mixed> $attributes Initial attributes.
      */
     public function __construct(array $attributes = [])
     {
@@ -83,10 +111,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Set the database connection for all models.
-     *
-     * @param ConnectionInterface $connection
-     * @return void
+     * Set the global connection used by all models.
      */
     public static function setConnection(ConnectionInterface $connection): void
     {
@@ -94,9 +119,9 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Get the database connection.
+     * Get the configured database connection.
      *
-     * @return ConnectionInterface
+     * @throws \RuntimeException If no connection was set.
      */
     protected static function getConnection(): ConnectionInterface
     {
@@ -108,9 +133,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Create a new query builder for the model.
-     *
-     * @return QueryBuilder
+     * Create a new QueryBuilder scoped to this model's table.
      */
     public static function query(): QueryBuilder
     {
@@ -118,7 +141,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Get the table name.
      */
     public static function getTableName(): string
     {
@@ -126,7 +149,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Get the primary key column name.
      */
     public static function getPrimaryKey(): string
     {
@@ -134,10 +157,10 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Find a model by primary key.
+     * Find a model by its primary key.
      *
      * @param int|string $id Primary key value.
-     * @return static|null
+     * @return static|null The hydrated model or null if not found.
      */
     public static function find(int|string $id): ?static
     {
@@ -155,11 +178,12 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Find a model by primary key or throw exception.
+     * Find a model by its primary key or throw.
      *
      * @param int|string $id Primary key value.
      * @return static
-     * @throws \RuntimeException
+     *
+     * @throws \RuntimeException If not found.
      */
     public static function findOrFail(int|string $id): static
     {
@@ -177,26 +201,35 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Get all models.
+     * Get all records as a typed ModelCollection.
      *
-     * @return array<static>
+     * @return ModelCollection<static>
      */
-    public static function all(): array
+    public static function all(): ModelCollection
     {
-        $results = static::query()->get();
-
-        return array_map(function ($data) {
-            $model = new static($data);
-            $model->exists = true;
-            $model->syncOriginal();
-            return $model;
-        }, $results);
+        return static::get();
     }
 
     /**
-     * Create and save a new model.
+     * Get the first record or null.
      *
-     * @param array $attributes Model attributes.
+     * @return static|null
+     */
+    public static function first(): ?static
+    {
+        $row = static::query()->limit(1)->first();
+        if (!$row) return null;
+
+        $m = new static($row);
+        $m->exists = true;
+        $m->syncOriginal();
+        return $m;
+    }
+
+    /**
+     * Create a new instance and immediately persist it.
+     *
+     * @param array<string,mixed> $attributes
      * @return static
      */
     public static function create(array $attributes): static
@@ -207,7 +240,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Persist the model: insert if new, otherwise update dirty attributes.
      */
     public function save(): bool
     {
@@ -219,9 +252,9 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Perform model insert.
+     * Insert the model attributes and mark as existing.
      *
-     * @return bool
+     * @internal Emits "creating" and "created" hooks.
      */
     private function performInsert(): bool
     {
@@ -243,9 +276,9 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Perform model update.
+     * Update dirty attributes on an existing model.
      *
-     * @return bool
+     * @internal Emits "updating" and "updated" hooks.
      */
     private function performUpdate(): bool
     {
@@ -273,7 +306,9 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Delete the model if it exists.
+     *
+     * @internal Emits "deleting" and "deleted" hooks.
      */
     public function delete(): bool
     {
@@ -295,7 +330,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Refresh the model state from the database by primary key.
      */
     public function refresh(): self
     {
@@ -314,7 +349,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Whether this instance exists in the database.
      */
     public function exists(): bool
     {
@@ -322,10 +357,10 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Fill the model with attributes.
+     * Mass-assign attributes using fillable/guarded rules.
      *
-     * @param array $attributes Attributes to fill.
-     * @return self
+     * @param array<string,mixed> $attributes
+     * @return $this
      */
     public function fill(array $attributes): self
     {
@@ -339,10 +374,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Check if attribute is fillable.
-     *
-     * @param string $key Attribute key.
-     * @return bool
+     * Check whether a key can be mass-assigned.
      */
     private function isFillable(string $key): bool
     {
@@ -358,9 +390,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Get the primary key value.
-     *
-     * @return mixed
+     * Get the current primary key value.
      */
     public function getKey(): mixed
     {
@@ -368,10 +398,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Get an attribute value.
-     *
-     * @param string $key Attribute key.
-     * @return mixed
+     * Get an attribute with casting applied if configured.
      */
     public function getAttribute(string $key): mixed
     {
@@ -381,11 +408,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Set an attribute value.
-     *
-     * @param string $key Attribute key.
-     * @param mixed $value Attribute value.
-     * @return void
+     * Set a raw attribute value (no casting).
      */
     public function setAttribute(string $key, mixed $value): void
     {
@@ -393,11 +416,9 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Cast an attribute to native type.
+     * Cast an attribute to a native type if configured.
      *
-     * @param string $key Attribute key.
-     * @param mixed $value Raw value.
-     * @return mixed
+     * Supported types: int, float, string, bool, array, json, date (\DateTime).
      */
     private function castAttribute(string $key, mixed $value): mixed
     {
@@ -420,9 +441,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Check if model has changed.
-     *
-     * @return bool
+     * Whether any attribute has changed from the original snapshot.
      */
     public function isDirty(): bool
     {
@@ -430,9 +449,9 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Get changed attributes.
+     * Get the subset of attributes which differ from the original snapshot.
      *
-     * @return array
+     * @return array<string,mixed>
      */
     public function getDirty(): array
     {
@@ -448,9 +467,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Sync original attributes with current.
-     *
-     * @return void
+     * Replace the original snapshot with current attributes.
      */
     private function syncOriginal(): void
     {
@@ -458,9 +475,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Update timestamps.
-     *
-     * @return void
+     * Update timestamps on the model (created_at on insert, updated_at always).
      */
     private function updateTimestamps(): void
     {
@@ -474,10 +489,9 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Fire a model event.
+     * Dispatch a lifecycle hook if the corresponding method is implemented.
      *
-     * @param string $event Event name.
-     * @return void
+     * Available hooks: creating, created, updating, updated, deleting, deleted.
      */
     private function fireEvent(string $event): void
     {
@@ -489,7 +503,9 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Convert the model to an array of raw attributes.
+     *
+     * @return array<string,mixed>
      */
     public function toArray(): array
     {
@@ -497,7 +513,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * {@inheritdoc}
+     * Convert the model to a JSON string.
      */
     public function toJson(): string
     {
@@ -505,10 +521,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Magic getter for attributes.
-     *
-     * @param string $key Attribute key.
-     * @return mixed
+     * Magic getter: proxies to getAttribute().
      */
     public function __get(string $key): mixed
     {
@@ -516,11 +529,7 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Magic setter for attributes.
-     *
-     * @param string $key Attribute key.
-     * @param mixed $value Attribute value.
-     * @return void
+     * Magic setter: proxies to setAttribute().
      */
     public function __set(string $key, mixed $value): void
     {
@@ -528,13 +537,60 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Magic isset for attributes.
-     *
-     * @param string $key Attribute key.
-     * @return bool
+     * Magic isset: checks if attribute is present in the bag.
      */
     public function __isset(string $key): bool
     {
         return isset($this->attributes[$key]);
+    }
+
+    /**
+     * Create a typed collection for this model type.
+     *
+     * @param array<int,static> $models
+     * @return ModelCollection<static>
+     */
+    protected function newCollection(array $models = []): ModelCollection
+    {
+        return new ModelCollection($models);
+    }
+
+    /**
+     * Hydrate model instances from an array of database rows.
+     *
+     * @param array<int, array<string,mixed>> $rows
+     * @return ModelCollection<static>
+     */
+    public static function hydrate(array $rows): ModelCollection
+    {
+        $out = [];
+        foreach ($rows as $data) {
+            $m = new static($data);
+            $m->exists = true;
+            $m->syncOriginal();
+            $out[] = $m;
+        }
+        return (new static())->newCollection($out);
+    }
+
+    /**
+     * Execute the current query and return a typed ModelCollection.
+     *
+     * Compatible with both RowCollection and plain array results from QueryBuilder::get().
+     *
+     * @return ModelCollection<static>
+     */
+    public static function get(): ModelCollection
+    {
+        $qb = static::query();
+        $result = $qb->get(); // RowCollection|array
+
+        if ($result instanceof RowCollection) {
+            /** @var RowCollection $result */
+            return static::hydrate($result->all());
+        }
+
+        /** @var array<int, array<string,mixed>> $result */
+        return static::hydrate($result);
     }
 }
