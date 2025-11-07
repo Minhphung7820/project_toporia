@@ -1,76 +1,236 @@
 <?php
+
+declare(strict_types=1);
+
 namespace Framework\Routing;
 
+use Framework\Container\ContainerInterface;
 use Framework\Http\Request;
 use Framework\Http\Response;
-use Framework\Container\Container;
 
-final class Router
+/**
+ * HTTP Router with middleware support and dependency injection.
+ *
+ * Features:
+ * - RESTful route registration (GET, POST, PUT, PATCH, DELETE, ANY)
+ * - Route parameter extraction ({id} syntax)
+ * - Middleware pipeline
+ * - Named routes
+ * - Dependency injection for controllers
+ */
+final class Router implements RouterInterface
 {
-    private Request $request;
-    private Response $response;
-    private Container $container;
-    private array $routes = [
-        'GET' => [], 'POST' => [], 'PUT' => [], 'PATCH' => [], 'DELETE' => []
-    ];
+    /**
+     * @var RouteCollectionInterface Route collection.
+     */
+    private RouteCollectionInterface $routes;
 
-    public function __construct(Request $req, Response $res, Container $c)
-    {
-        $this->request = $req;
-        $this->response = $res;
-        $this->container = $c;
+    /**
+     * @param Request $request Current HTTP request.
+     * @param Response $response HTTP response handler.
+     * @param ContainerInterface $container Dependency injection container.
+     * @param RouteCollectionInterface|null $routes Optional custom route collection.
+     */
+    public function __construct(
+        private Request $request,
+        private Response $response,
+        private ContainerInterface $container,
+        ?RouteCollectionInterface $routes = null
+    ) {
+        $this->routes = $routes ?? new RouteCollection();
     }
 
-    public function get(string $path, $handler, array $middleware = []): void { $this->routes['GET'][$path] = [$handler, $middleware]; }
-    public function post(string $path, $handler, array $middleware = []): void { $this->routes['POST'][$path] = [$handler, $middleware]; }
-    public function put(string $path, $handler, array $middleware = []): void { $this->routes['PUT'][$path] = [$handler, $middleware]; }
-    public function patch(string $path, $handler, array $middleware = []): void { $this->routes['PATCH'][$path] = [$handler, $middleware]; }
-    public function delete(string $path, $handler, array $middleware = []): void { $this->routes['DELETE'][$path] = [$handler, $middleware]; }
-
-    private function match(string $method, string $path): array
+    /**
+     * {@inheritdoc}
+     */
+    public function get(string $path, mixed $handler, array $middleware = []): RouteInterface
     {
-        if (isset($this->routes[$method][$path])) {
-            return [$this->routes[$method][$path], []];
-        }
-        foreach ($this->routes[$method] as $route => $handler) {
-            $pattern = preg_replace('#\{([^/]+)\}#', '(?P<$1>[^/]+)', $route);
-            if (preg_match('#^' . $pattern . '$#', $path, $m)) {
-                $params = array_filter($m, 'is_string', ARRAY_FILTER_USE_KEY);
-                return [$handler, $params];
-            }
-        }
-        return [null, []];
+        return $this->addRoute('GET', $path, $handler, $middleware);
     }
 
+    /**
+     * {@inheritdoc}
+     */
+    public function post(string $path, mixed $handler, array $middleware = []): RouteInterface
+    {
+        return $this->addRoute('POST', $path, $handler, $middleware);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function put(string $path, mixed $handler, array $middleware = []): RouteInterface
+    {
+        return $this->addRoute('PUT', $path, $handler, $middleware);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function patch(string $path, mixed $handler, array $middleware = []): RouteInterface
+    {
+        return $this->addRoute('PATCH', $path, $handler, $middleware);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function delete(string $path, mixed $handler, array $middleware = []): RouteInterface
+    {
+        return $this->addRoute('DELETE', $path, $handler, $middleware);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function any(string $path, mixed $handler, array $middleware = []): RouteInterface
+    {
+        return $this->addRoute(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], $path, $handler, $middleware);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function dispatch(): void
     {
-        [$entry, $params] = $this->match($this->request->method(), $this->request->path());
-        if (!$entry) {
-            $this->response->html('<h1>404</h1>', 404);
+        $match = $this->routes->match($this->request->method(), $this->request->path());
+
+        if ($match === null) {
+            $this->handleNotFound();
             return;
         }
-        [$handler, $middlewares] = $entry;
 
-        $coreHandler = function ($req, $res) use ($handler, $params) {
+        ['route' => $route, 'parameters' => $parameters] = $match;
+
+        $this->executeRoute($route, $parameters);
+    }
+
+    /**
+     * Add a route to the collection.
+     *
+     * @param string|array $methods HTTP method(s).
+     * @param string $path URI pattern.
+     * @param mixed $handler Route handler.
+     * @param array<string> $middleware Middleware classes.
+     * @return RouteInterface
+     */
+    private function addRoute(
+        string|array $methods,
+        string $path,
+        mixed $handler,
+        array $middleware
+    ): RouteInterface {
+        $route = new Route($methods, $path, $handler, $middleware);
+        $this->routes->add($route);
+        return $route;
+    }
+
+    /**
+     * Execute a matched route with middleware pipeline.
+     *
+     * @param RouteInterface $route Matched route.
+     * @param array $parameters Extracted route parameters.
+     * @return void
+     */
+    private function executeRoute(RouteInterface $route, array $parameters): void
+    {
+        $handler = $route->getHandler();
+
+        // Build the core handler
+        $coreHandler = $this->buildCoreHandler($handler, $parameters);
+
+        // Build middleware pipeline
+        $pipeline = $this->buildMiddlewarePipeline($route->getMiddleware(), $coreHandler);
+
+        // Execute pipeline
+        $pipeline($this->request, $this->response);
+    }
+
+    /**
+     * Build the core route handler.
+     *
+     * @param mixed $handler Route handler definition.
+     * @param array $parameters Route parameters.
+     * @return callable
+     */
+    private function buildCoreHandler(mixed $handler, array $parameters): callable
+    {
+        return function (Request $req, Response $res) use ($handler, $parameters) {
+            // Array handler [ControllerClass::class, 'method']
             if (is_array($handler) && is_string($handler[0])) {
-                $controller = new $handler[0]($req, $res);
-                return $controller->{$handler[1]}(...array_values($params));
+                $controller = $this->container->get($handler[0]);
+                $method = $handler[1];
+
+                // Inject Request and Response into constructor if needed
+                if (method_exists($controller, '__construct')) {
+                    $controller = new $handler[0]($req, $res);
+                }
+
+                return $controller->{$method}(...array_values($parameters));
             }
+
+            // Callable handler
             if (is_callable($handler)) {
-                return $handler($req, $res, ...array_values($params));
+                return $this->container->call($handler, array_merge(
+                    ['request' => $req, 'response' => $res],
+                    $parameters
+                ));
             }
+
+            // Invokable class
+            if (is_string($handler) && class_exists($handler)) {
+                $instance = $this->container->get($handler);
+                return $this->container->call([$instance, '__invoke'], array_merge(
+                    ['request' => $req, 'response' => $res],
+                    $parameters
+                ));
+            }
+
             throw new \RuntimeException('Invalid route handler');
         };
+    }
 
-        $next = $coreHandler;
-        for ($i = count($middlewares) - 1; $i >= 0; $i--) {
-            $mwClass = $middlewares[$i];
-            $mw = new $mwClass();
-            $currentNext = $next;
-            $next = function ($req, $res) use ($mw, $currentNext) {
-                return $mw->handle($req, $res, $currentNext);
+    /**
+     * Build middleware pipeline around the core handler.
+     *
+     * @param array<string> $middlewareClasses Middleware class names.
+     * @param callable $coreHandler Core route handler.
+     * @return callable
+     */
+    private function buildMiddlewarePipeline(array $middlewareClasses, callable $coreHandler): callable
+    {
+        $pipeline = $coreHandler;
+
+        // Build middleware chain in reverse order
+        foreach (array_reverse($middlewareClasses) as $middlewareClass) {
+            $currentPipeline = $pipeline;
+
+            $pipeline = function (Request $req, Response $res) use ($middlewareClass, $currentPipeline) {
+                $middleware = $this->container->get($middlewareClass);
+                return $middleware->handle($req, $res, $currentPipeline);
             };
         }
-        $next($this->request, $this->response);
+
+        return $pipeline;
+    }
+
+    /**
+     * Handle 404 Not Found response.
+     *
+     * @return void
+     */
+    private function handleNotFound(): void
+    {
+        $this->response->html('<h1>404 Not Found</h1>', 404);
+    }
+
+    /**
+     * Get the route collection.
+     *
+     * @return RouteCollectionInterface
+     */
+    public function getRoutes(): RouteCollectionInterface
+    {
+        return $this->routes;
     }
 }

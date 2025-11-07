@@ -1,11 +1,12 @@
 <?php
+
 namespace App\Presentation\Http\Controllers;
 
 final class HomeController extends BaseController
 {
-    public function index(): string
+    public function index()
     {
-        return $this->view('home/index', ['user' => auth()->user()]);
+        echo "dà";
     }
     public function dashboard(): string
     {
