@@ -31,6 +31,8 @@ use Framework\Http\ResponseInterface;
 use Framework\Routing\Router;
 use Framework\Routing\RouterInterface;
 use App\Infrastructure\Auth\SessionAuth;
+use Framework\Database\ConnectionInterface;
+use Framework\Database\Connection;
 
 /*
 |--------------------------------------------------------------------------
@@ -54,6 +56,24 @@ $container = new Container();
 |
 */
 
+//
+// $container->bind(ConnectionInterface::class, function (Container $c) {
+//     $config = [
+//         'driver'   => getenv('DB_DRIVER') ?: 'mysql',
+//         'host'     => getenv('DB_HOST') ?: '127.0.0.1',
+//         'port'     => getenv('DB_PORT') ?: '3306',
+//         'database' => getenv('DB_DATABASE') ?: 'project_topo',
+//         'username' => getenv('DB_USERNAME') ?: 'root',
+//         'password' => getenv('DB_PASSWORD') ?: '',
+//         'charset'  => 'utf8mb4',
+//         'options'  => [
+//             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+//             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+//         ],
+//     ];
+
+//     return new Connection($config);
+// });
 // HTTP Layer - Request and Response are created per request
 $container->bind(RequestInterface::class, fn() => Request::capture());
 $container->bind(Request::class, fn() => Request::capture());
