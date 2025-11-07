@@ -1,0 +1,14 @@
+{
+  "name": "yourorg/clean-mvc-skeleton",
+  "description": "Clean Architecture MVC skeleton (Framework + App layers)",
+  "type": "project",
+  "require": {
+    "php": ">=8.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "Framework\\": "src/Framework/",
+      "App\\": "src/App/"
+    }
+  }
+}
