@@ -18,7 +18,7 @@ use Traversable;
  * Multi-pass safe: mỗi lần iterate sẽ tạo Generator mới.
  * Vẫn giữ style hiện tại: chunk()/zip() yield Collection eager.
  */
-class LazyCollection implements IteratorAggregate, Countable
+class LazyCollection implements IteratorAggregate, Countable, CollectionInterface
 {
     /** @var callable():Generator */
     protected $producer;
@@ -677,5 +677,147 @@ class LazyCollection implements IteratorAggregate, Countable
         if (is_int($id) || is_float($id) || is_string($id)) return (string)$id;
         // array/object: stable json
         return json_encode($id, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+    }
+
+    // src/Framework/Support/LazyCollection.php
+
+    public function sum(callable|string|null $callback = null): int|float
+    {
+        $total = 0;
+        if ($callback === null) {
+            foreach ($this as $v) $total += $v;
+            return $total;
+        }
+        if (is_string($callback)) {
+            foreach ($this as $v) {
+                $total += is_array($v) ? ($v[$callback] ?? 0) : (is_object($v) ? ($v->{$callback} ?? 0) : 0);
+            }
+            return $total;
+        }
+        foreach ($this as $v) $total += $callback($v);
+        return $total;
+    }
+
+    public function min(callable|string|null $callback = null): mixed
+    {
+        $set = false;
+        $min = null;
+        $extract = $this->valueExtractor($callback);
+        foreach ($this as $v) {
+            $val = $extract($v);
+            if (!$set || $val < $min) {
+                $min = $val;
+                $set = true;
+            }
+        }
+        return $min;
+    }
+
+    public function max(callable|string|null $callback = null): mixed
+    {
+        $set = false;
+        $max = null;
+        $extract = $this->valueExtractor($callback);
+        foreach ($this as $v) {
+            $val = $extract($v);
+            if (!$set || $val > $max) {
+                $max = $val;
+                $set = true;
+            }
+        }
+        return $max;
+    }
+
+    /**
+     * Lấy mỗi phần tử thứ $step (bỏ qua $offset đầu).
+     */
+    public function nth(int $step, int $offset = 0): static
+    {
+        if ($step <= 0) {
+            throw new InvalidArgumentException('Step must be > 0.');
+        }
+        return new static(function () use ($step, $offset) {
+            $i = 0;
+            foreach ($this as $v) {
+                if ($i++ < $offset) continue;
+                if ((($i - $offset - 1) % $step) === 0) yield $v;
+            }
+        });
+    }
+
+    /**
+     * Pluck theo path đơn (key) hoặc chuỗi key con (a.b.c) nếu bạn muốn.
+     */
+    public function pluck(string|array $path): static
+    {
+        $segments = is_array($path) ? $path : explode('.', $path);
+        return new static(function () use ($segments) {
+            foreach ($this as $item) {
+                $current = $item;
+                foreach ($segments as $seg) {
+                    if (is_array($current)) {
+                        $current = $current[$seg] ?? null;
+                    } elseif (is_object($current)) {
+                        $current = $current->{$seg} ?? null;
+                    } else {
+                        $current = null;
+                        break;
+                    }
+                }
+                yield $current;
+            }
+        });
+    }
+
+    public function keyBy(callable|string $key): static
+    {
+        return new static(function () use ($key) {
+            $extract = is_string($key)
+                ? fn($item) => is_array($item) ? ($item[$key] ?? null) : (is_object($item) ? ($item->{$key} ?? null) : null)
+                : $key;
+
+            $buffer = [];
+            foreach ($this as $item) {
+                $buffer[$extract($item)] = $item;
+            }
+            foreach ($buffer as $k => $v) yield $k => $v;
+        });
+    }
+
+    public function toEager(): Collection
+    {
+        $arr = [];
+        foreach ($this as $v) $arr[] = $v;
+        return Collection::make($arr);
+    }
+
+    /**
+     * Áp dụng $fn theo từng chunk để giảm peak memory.
+     * $fn nhận array $chunk, trả về iterable|array kết quả (yield từng phần tử).
+     */
+    public function mapChunked(int $size, callable $fn): static
+    {
+        if ($size <= 0) throw new InvalidArgumentException('Chunk size must be > 0.');
+        return new static(function () use ($size, $fn) {
+            $chunk = [];
+            foreach ($this as $item) {
+                $chunk[] = $item;
+                if (count($chunk) === $size) {
+                    foreach ($fn($chunk) as $out) yield $out;
+                    $chunk = [];
+                }
+            }
+            if ($chunk) {
+                foreach ($fn($chunk) as $out) yield $out;
+            }
+        });
+    }
+
+    /** @internal */
+    private function valueExtractor(callable|string|null $callback): callable
+    {
+        if ($callback === null)   return fn($v) => $v;
+        if (is_string($callback)) return fn($v) => is_array($v) ? ($v[$callback] ?? null) : (is_object($v) ? ($v->{$callback} ?? null) : null);
+        return $callback;
     }
 }

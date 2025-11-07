@@ -251,4 +251,44 @@ if (!function_exists('once')) {
             return $result;
         };
     }
+    if (!function_exists('iter')) {
+        /**
+         * Chuẩn hoá về Traversable để có thể foreach an toàn mà không copy mảng.
+         */
+        function iter(mixed $value): Traversable
+        {
+            if ($value instanceof Traversable) return $value;
+            if (is_array($value)) {
+                foreach ($value as $k => $v) yield $k => $v;
+                return;
+            }
+            if (is_null($value)) return (function () {
+                if (false) yield null;
+            })();
+            yield $value;
+        }
+    }
+
+    if (!function_exists('comparer')) {
+        /**
+         * Sinh comparator (dùng cho usort/uasort) từ key hoặc callback.
+         * comparer('price', 'desc', SORT_NUMERIC)
+         */
+        function comparer(callable|string $key, string $direction = 'asc', int $type = SORT_REGULAR): callable
+        {
+            $extract = is_string($key)
+                ? fn($v) => is_array($v) ? ($v[$key] ?? null) : (is_object($v) ? ($v->{$key} ?? null) : null)
+                : $key;
+
+            $mult = strtolower($direction) === 'desc' ? -1 : 1;
+
+            return function ($a, $b) use ($extract, $type, $mult) {
+                $va = $extract($a);
+                $vb = $extract($b);
+                return $mult * (
+                    $type === SORT_NUMERIC ? (($va <=> $vb)) : ($type === SORT_STRING ? strcmp((string)$va, (string)$vb) : ($va <=> $vb))
+                );
+            };
+        }
+    }
 }

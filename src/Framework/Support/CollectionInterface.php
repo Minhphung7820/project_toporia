@@ -4,141 +4,349 @@ declare(strict_types=1);
 
 namespace Framework\Support;
 
+use Countable;
+use IteratorAggregate;
+use Traversable;
+
 /**
- * Collection Interface
+ * @template TKey of array-key
+ * @template TValue
  *
- * Defines contract for immutable collection operations.
- * Inspired by functional programming principles.
+ * A common enumerable contract (lazy or eager) for functional collection pipelines.
+ * Both eager Collection and LazyCollection should implement this interface
+ * to enable polymorphism across application layers (Clean Architecture).
  */
-interface CollectionInterface extends \IteratorAggregate, \Countable, \ArrayAccess
+interface CollectionInterface extends IteratorAggregate, Countable
 {
     /**
-     * Create new collection from items.
+     * @inheritDoc
+     * @return Traversable<TKey, TValue>
      */
-    public static function make(mixed $items = []): self;
+    public function getIterator(): Traversable;
 
     /**
-     * Create collection from range.
+     * Lazily/eagerly map items.
+     *
+     * @template TOut
+     * @param callable(TValue, TKey): TOut $callback
+     * @return static<TKey, TOut>
      */
-    public static function range(int $start, int $end, int $step = 1): self;
+    public function map(callable $callback): static;
 
     /**
-     * Create collection by repeating value.
+     * Map then flatten one level (if the callback returns iterable/Traversable/array).
+     *
+     * @template TOut
+     * @param callable(TValue, TKey): (iterable<mixed, TOut>|TOut|null) $callback
+     * @return static<array-key, TOut>
      */
-    public static function times(int $count, callable $callback): self;
+    public function flatMap(callable $callback): static;
 
     /**
-     * Get all items as array.
+     * Concat additional iterables after current sequence.
+     *
+     * @param mixed ...$iters
+     * @return static
      */
-    public function all(): array;
+    public function concat(mixed ...$iters): static;
 
     /**
-     * Get first item or default.
+     * Filter items. If $callback is null, truthy filtering is applied.
+     *
+     * @param (callable(TValue, TKey): bool)|null $callback
+     * @return static
      */
-    public function first(callable $callback = null, mixed $default = null): mixed;
+    public function filter(callable $callback = null): static;
 
     /**
-     * Get last item or default.
+     * Reject items for which callback returns true.
+     *
+     * @param callable(TValue, TKey): bool $callback
+     * @return static
      */
-    public function last(callable $callback = null, mixed $default = null): mixed;
+    public function reject(callable $callback): static;
 
     /**
-     * Map over items.
+     * Take first N items (N >= 0).
+     *
+     * @param int $limit
+     * @return static
      */
-    public function map(callable $callback): self;
+    public function take(int $limit): static;
 
     /**
-     * Filter items using callback.
+     * Take items while predicate holds.
+     *
+     * @param callable(TValue, TKey): bool $callback
+     * @return static
      */
-    public function filter(callable $callback = null): self;
+    public function takeWhile(callable $callback): static;
 
     /**
-     * Reduce collection to single value.
+     * Take items until predicate holds (i.e., stop when callback returns true).
+     *
+     * @param callable(TValue, TKey): bool $callback
+     * @return static
+     */
+    public function takeUntil(callable $callback): static;
+
+    /**
+     * Skip first N items (N >= 0).
+     *
+     * @param int $offset
+     * @return static
+     */
+    public function skip(int $offset): static;
+
+    /**
+     * Skip while predicate holds, then yield the rest.
+     *
+     * @param callable(TValue, TKey): bool $callback
+     * @return static
+     */
+    public function skipWhile(callable $callback): static;
+
+    /**
+     * Skip until predicate holds, then yield the rest.
+     *
+     * @param callable(TValue, TKey): bool $callback
+     * @return static
+     */
+    public function skipUntil(callable $callback): static;
+
+    /**
+     * Unique items by id-resolver:
+     *  - null => by item itself,
+     *  - string => by array key/object property,
+     *  - callable($item,$key) => custom id.
+     *
+     * @param string|callable(TValue, TKey): mixed|null $key
+     * @return static
+     */
+    public function unique(string|callable|null $key = null): static;
+
+    /**
+     * Chunk stream into eager Collection chunks of fixed size (> 0).
+     * Each yielded element is an eager Collection.
+     *
+     * @param int $size
+     * @return static<array-key, Collection<array-key, TValue>>
+     */
+    public function chunk(int $size): static;
+
+    /**
+     * Flatten nested arrays/Collections up to $depth (INF for all).
+     *
+     * @param int|float $depth
+     * @return static<array-key, mixed>
+     */
+    public function flatten(int|float $depth = INF): static;
+
+    /**
+     * Tap into the pipeline for side effects.
+     *
+     * @param callable(TValue, TKey): void $callback
+     * @return static
+     */
+    public function tap(callable $callback): static;
+
+    /**
+     * Iterate and execute callback for each item (terminal).
+     * Return self for fluent chaining (no-op).
+     *
+     * @param callable(TValue, TKey): (bool|void) $callback Return false to break early.
+     * @return static
+     */
+    public function each(callable $callback): static;
+
+    /**
+     * Reduce items to a single value (terminal).
+     *
+     * @template TAcc
+     * @param callable(TAcc, TValue, TKey): TAcc $callback
+     * @param TAcc $initial
+     * @return TAcc
      */
     public function reduce(callable $callback, mixed $initial = null): mixed;
 
     /**
-     * Check if any item passes test.
+     * True if any item satisfies predicate (terminal).
+     *
+     * @param callable(TValue, TKey): bool $callback
+     * @return bool
      */
     public function some(callable $callback): bool;
 
     /**
-     * Check if all items pass test.
+     * True if all items satisfy predicate (terminal).
+     *
+     * @param callable(TValue, TKey): bool $callback
+     * @return bool
      */
     public function every(callable $callback): bool;
 
     /**
-     * Flatten multi-dimensional collection.
+     * Contains checks (terminal):
+     *  - contains(fn($item)=>...),
+     *  - contains($needle),
+     *  - contains($key, $operator, $value) against arrays/objects.
+     *
+     * @param mixed $key
+     * @param mixed $operator
+     * @param mixed $value
+     * @return bool
      */
-    public function flatten(int $depth = INF): self;
+    public function contains(mixed $key, mixed $operator = null, mixed $value = null): bool;
 
     /**
-     * Get unique items.
+     * Get first item (optionally by predicate), else $default (terminal).
+     *
+     * @param callable(TValue, TKey): bool|null $callback
+     * @param mixed $default
+     * @return TValue|null
      */
-    public function unique(string|callable|null $key = null): self;
+    public function first(callable $callback = null, mixed $default = null): mixed;
 
     /**
-     * Sort collection.
+     * Materialize to array (terminal).
+     *
+     * @return array<TKey, TValue>
      */
-    public function sort(callable $callback = null): self;
+    public function all(): array;
 
     /**
-     * Take first N items.
+     * Values only (reindex).
+     *
+     * @return static<array-key, TValue>
      */
-    public function take(int $limit): self;
+    public function values(): static;
 
     /**
-     * Skip first N items.
+     * Keys only.
+     *
+     * @return static<array-key, TKey>
      */
-    public function skip(int $offset): self;
+    public function keys(): static;
 
     /**
-     * Chunk collection into smaller collections.
+     * Collect into eager Collection (materialize).
+     *
+     * @return Collection<TKey, TValue>
      */
-    public function chunk(int $size): self;
+    public function collect(): Collection;
 
     /**
-     * Group items by key or callback.
+     * @inheritDoc
+     * @return int
      */
-    public function groupBy(string|callable $key): self;
+    public function count(): int;
 
     /**
-     * Partition into two collections based on callback.
-     */
-    public function partition(callable $callback): array;
-
-    /**
-     * Zip with other collections.
-     */
-    public function zip(mixed ...$arrays): self;
-
-    /**
-     * Get items as JSON.
-     */
-    public function toJson(int $options = 0): string;
-
-    /**
-     * Check if collection is empty.
+     * True if no items.
+     *
+     * @return bool
      */
     public function isEmpty(): bool;
 
     /**
-     * Check if collection is not empty.
+     * True if there is at least one item.
+     *
+     * @return bool
      */
     public function isNotEmpty(): bool;
 
     /**
-     * Execute callback on each item.
+     * Zip with other iterables; stops when the shortest ends.
+     * Each yielded item is an eager Collection row.
+     *
+     * @param mixed ...$arrays
+     * @return static<array-key, Collection<array-key, mixed>>
      */
-    public function each(callable $callback): self;
+    public function zip(mixed ...$arrays): static;
 
     /**
-     * Pipe collection through callback.
+     * Cache/remember sequence in memory for multi-pass.
+     *
+     * @return static
      */
-    public function pipe(callable $callback): mixed;
+    public function remember(): static;
 
     /**
-     * Tap into collection without modifying it.
+     * Encode to JSON (materializes).
+     *
+     * @param int $options
+     * @return string
      */
-    public function tap(callable $callback): self;
+    public function toJson(int $options = 0): string;
+
+    /**
+     * Sum values (terminal).
+     *  - null => sum items directly,
+     *  - string => sum by key/property,
+     *  - callable => sum by projection.
+     *
+     * @param callable(TValue): int|float|string|null|string|int|null|float $callback
+     * @return int|float
+     */
+    public function sum(callable|string|null $callback = null): int|float;
+
+    /**
+     * Minimum by direct value / key / projection (terminal).
+     *
+     * @param callable(TValue): mixed|string|null $callback
+     * @return mixed
+     */
+    public function min(callable|string|null $callback = null): mixed;
+
+    /**
+     * Maximum by direct value / key / projection (terminal).
+     *
+     * @param callable(TValue): mixed|string|null $callback
+     * @return mixed
+     */
+    public function max(callable|string|null $callback = null): mixed;
+
+    /**
+     * Take every N-th item, skipping optional offset.
+     *
+     * @param int $step  Step > 0
+     * @param int $offset
+     * @return static
+     */
+    public function nth(int $step, int $offset = 0): static;
+
+    /**
+     * Pluck by simple path "a.b.c" or array of segments.
+     *
+     * @param string|array<int, string> $path
+     * @return static<array-key, mixed>
+     */
+    public function pluck(string|array $path): static;
+
+    /**
+     * Reindex items by key selector.
+     *
+     * @param callable(TValue): array-key|string $key
+     *               | string $key  Property/array key name
+     * @return static
+     */
+    public function keyBy(callable|string $key): static;
+
+    /**
+     * Convert to eager Collection (alias for collect, if you differentiate).
+     *
+     * @return Collection<array-key, TValue>
+     */
+    public function toEager(): Collection;
+
+    /**
+     * Apply $fn per chunk (to reduce peak memory).
+     * $fn receives array<TValue>, returns iterable of outputs (yielded one by one).
+     *
+     * @template TOut
+     * @param int $size
+     * @param callable(array<int, TValue>): iterable<mixed, TOut> $fn
+     * @return static<array-key, TOut>
+     */
+    public function mapChunked(int $size, callable $fn): static;
 }

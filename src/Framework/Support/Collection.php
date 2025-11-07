@@ -26,8 +26,7 @@ class Collection implements CollectionInterface
      */
     protected function __construct(
         protected array $items = []
-    ) {
-    }
+    ) {}
 
     /**
      * Create new collection from items.
@@ -85,6 +84,11 @@ class Collection implements CollectionInterface
         return $this->items;
     }
 
+    public function collect(): Collection
+    {
+        return $this;
+    }
+
     /**
      * Get first item matching callback or default.
      */
@@ -112,23 +116,46 @@ class Collection implements CollectionInterface
             return empty($this->items) ? $default : end($this->items);
         }
 
-        $items = array_reverse($this->items, true);
-        foreach ($items as $key => $value) {
+        $items = $this->items;
+        end($items);
+        while (($key = key($items)) !== null) {
+            $value = current($items);
             if ($callback($value, $key)) {
                 return $value;
             }
+            prev($items);
         }
-
         return $default;
     }
 
     /**
      * Get item at index or default.
      */
-    public function nth(int $index, mixed $default = null): mixed
+    public function at(int $index, mixed $default = null): mixed
     {
-        $values = array_values($this->items);
-        return $values[$index] ?? $default;
+        if ($index < 0) return $default;
+        $i = 0;
+        foreach ($this->items as $v) {
+            if ($i === $index) return $v;
+            $i++;
+        }
+        return $default;
+    }
+
+    public function nth(int $step, int $offset = 0): static
+    {
+        if ($step <= 0) {
+            throw new \InvalidArgumentException('Step must be > 0.');
+        }
+        $out = [];
+        $i = 0;
+        foreach ($this->items as $k => $v) {
+            if ($i++ < $offset) continue;
+            if ((($i - $offset - 1) % $step) === 0) {
+                $out[$k] = $v;
+            }
+        }
+        return new static($out);
     }
 
     /**
@@ -136,10 +163,11 @@ class Collection implements CollectionInterface
      */
     public function map(callable $callback): static
     {
-        $keys = array_keys($this->items);
-        $items = array_map($callback, $this->items, $keys);
-
-        return new static(array_combine($keys, $items));
+        $out = [];
+        foreach ($this->items as $k => $v) {
+            $out[$k] = $callback($v, $k);
+        }
+        return new static($out);
     }
 
     /**
@@ -243,51 +271,55 @@ class Collection implements CollectionInterface
     /**
      * Flatten multi-dimensional collection.
      */
-    public function flatten(int $depth = INF): static
+    public function flatten(int|float $depth = INF): static
     {
-        $result = [];
-
-        foreach ($this->items as $item) {
-            if (!is_array($item) && !$item instanceof self) {
-                $result[] = $item;
-            } else {
-                $values = $item instanceof self ? $item->all() : $item;
-
-                if ($depth === 1) {
-                    $result = array_merge($result, array_values($values));
-                } else {
-                    $result = array_merge($result, (new static($values))->flatten($depth - 1)->all());
-                }
-            }
+        if ($depth === INF) {
+            $depth = PHP_INT_MAX;
         }
 
-        return new static($result);
+        if ($depth <= 0) {
+            return new static($this->items);
+        }
+
+        $out = [];
+        $push = function ($value, int $d) use (&$out, &$push) {
+            if ($d > 0 && (is_array($value) || $value instanceof self)) {
+                $iter = $value instanceof self ? $value->all() : $value;
+                foreach ($iter as $v) {
+                    $push($v, $d - 1);
+                }
+            } else {
+                $out[] = $value;
+            }
+        };
+
+        foreach ($this->items as $v) {
+            $push($v, (int) $depth);
+        }
+
+        return new static($out);
     }
 
     /**
      * Get unique items.
      */
-    public function unique(string|callable|null $key = null): static
+    public function unique(callable|string|null $by = null): static
     {
-        if ($key === null) {
-            return new static(array_unique($this->items, SORT_REGULAR));
-        }
+        $keyer = is_string($by)
+            ? fn($v) => is_array($v) ? ($v[$by] ?? null) : (is_object($v) ? ($v->{$by} ?? null) : null)
+            : ($by ?? fn($v) => $v);
 
-        $callback = is_callable($key) ? $key : fn($item) => $item[$key] ?? null;
-
-        $exists = [];
-        $items = [];
-
-        foreach ($this->items as $k => $item) {
-            $id = $callback($item, $k);
-
-            if (!in_array($id, $exists, true)) {
-                $exists[] = $id;
-                $items[$k] = $item;
+        $seen = [];
+        $out  = [];
+        foreach ($this->items as $v) {
+            $k = $keyer($v);
+            $kk = is_scalar($k) ? $k : md5(serialize($k));
+            if (!isset($seen[$kk])) {
+                $seen[$kk] = 1;
+                $out[] = $v;
             }
         }
-
-        return new static($items);
+        return new static($out);
     }
 
     /**
@@ -311,15 +343,26 @@ class Collection implements CollectionInterface
      */
     public function sortBy(string|callable $callback, bool $descending = false): static
     {
-        $callback = is_callable($callback) ? $callback : fn($item) => $item[$callback] ?? null;
+        $extract = is_callable($callback)
+            ? $callback
+            : fn($item) => is_array($item) ? ($item[$callback] ?? null) : (is_object($item) ? ($item->{$callback} ?? null) : null);
 
-        $items = $this->items;
-        uasort($items, function ($a, $b) use ($callback, $descending) {
-            $result = $callback($a) <=> $callback($b);
-            return $descending ? -$result : $result;
+        $decorated = [];
+        foreach ($this->items as $k => $it) {
+            $decorated[] = [$extract($it), $k, $it];
+        }
+
+        usort($decorated, static function ($a, $b) use ($descending) {
+            $cmp = $a[0] <=> $b[0];
+            return $descending ? -$cmp : $cmp;
         });
 
-        return new static($items);
+        $out = [];
+        foreach ($decorated as $row) {
+            [$key, $origKey, $val] = $row;
+            $out[$origKey] = $val;
+        }
+        return new static($out);
     }
 
     /**
@@ -457,13 +500,11 @@ class Collection implements CollectionInterface
         $result = $this->items;
 
         foreach ($arrays as $items) {
-            if ($items instanceof self) {
-                $items = $items->all();
+            if ($items instanceof self) $items = $items->all();
+            foreach ($items as $k => $v) {
+                $result[$k] = $v;
             }
-
-            $result = array_merge($result, $items);
         }
-
         return new static($result);
     }
 
@@ -496,13 +537,11 @@ class Collection implements CollectionInterface
     /**
      * Pluck values by key.
      */
-    public function pluck(string $value, ?string $key = null): static
+    public function pluckAssoc(string $value, ?string $key = null): static
     {
         $results = [];
-
         foreach ($this->items as $item) {
             $itemValue = is_array($item) ? ($item[$value] ?? null) : ($item->$value ?? null);
-
             if ($key === null) {
                 $results[] = $itemValue;
             } else {
@@ -510,10 +549,53 @@ class Collection implements CollectionInterface
                 $results[$itemKey] = $itemValue;
             }
         }
-
         return new static($results);
     }
 
+    public function pluck(string|array $path): static
+    {
+        $segments = is_array($path) ? $path : explode('.', $path);
+        $results = [];
+        foreach ($this->items as $item) {
+            $current = $item;
+            foreach ($segments as $seg) {
+                if (is_array($current)) {
+                    $current = $current[$seg] ?? null;
+                } elseif (is_object($current)) {
+                    $current = $current->{$seg} ?? null;
+                } else {
+                    $current = null;
+                    break;
+                }
+            }
+            $results[] = $current;
+        }
+        return new static($results);
+    }
+
+    public function concat(mixed ...$iters): static
+    {
+        $result = $this->items;
+        foreach ($iters as $it) {
+            if ($it instanceof self) {
+                $it = $it->all();
+            }
+            foreach ((array) $it as $k => $v) {
+                $result[] = $v;
+            }
+        }
+        return new static($result);
+    }
+
+    public function remember(): static
+    {
+        return $this;
+    }
+
+    public function toEager(): Collection
+    {
+        return $this;
+    }
     /**
      * Get min value.
      */
@@ -533,13 +615,22 @@ class Collection implements CollectionInterface
      */
     public function max(string|callable|null $callback = null): mixed
     {
-        if ($callback === null) {
-            return max($this->items);
+        $has = false;
+        $max = null;
+        $extract = $callback === null
+            ? fn($v) => $v
+            : (is_callable($callback)
+                ? $callback
+                : fn($item) => is_array($item) ? ($item[$callback] ?? null) : (is_object($item) ? ($item->{$callback} ?? null) : null));
+
+        foreach ($this->items as $k => $v) {
+            $val = $extract($v, $k);
+            if (!$has || $val > $max) {
+                $max = $val;
+                $has = true;
+            }
         }
-
-        $callback = is_callable($callback) ? $callback : fn($item) => $item[$callback] ?? null;
-
-        return $this->map($callback)->filter()->max();
+        return $max;
     }
 
     /**
@@ -547,13 +638,17 @@ class Collection implements CollectionInterface
      */
     public function sum(string|callable|null $callback = null): int|float
     {
+        $total = 0;
         if ($callback === null) {
-            return array_sum($this->items);
+            foreach ($this->items as $v) $total += $v;
+            return $total;
         }
+        $extract = is_callable($callback)
+            ? $callback
+            : fn($item) => is_array($item) ? ($item[$callback] ?? 0) : (is_object($item) ? ($item->{$callback} ?? 0) : 0);
 
-        $callback = is_callable($callback) ? $callback : fn($item) => $item[$callback] ?? 0;
-
-        return $this->map($callback)->sum();
+        foreach ($this->items as $k => $v) $total += $extract($v, $k);
+        return $total;
     }
 
     /**
@@ -580,7 +675,6 @@ class Collection implements CollectionInterface
             : $this->map($callback)->filter(fn($item) => is_numeric($item));
 
         $count = $values->count();
-
         if ($count === 0) {
             return null;
         }
@@ -589,11 +683,12 @@ class Collection implements CollectionInterface
         $middle = (int) ($count / 2);
 
         if ($count % 2 === 0) {
-            return ($sorted->nth($middle - 1) + $sorted->nth($middle)) / 2;
+            return ((float)$sorted->at($middle - 1) + (float)$sorted->at($middle)) / 2;
         }
 
-        return $sorted->nth($middle);
+        return (float)$sorted->at($middle);
     }
+
 
     /**
      * Mode (most frequent value).
@@ -787,9 +882,9 @@ class Collection implements CollectionInterface
     protected function compareValues(mixed $a, mixed $operator, mixed $b): bool
     {
         return match ($operator) {
-            '=' , '==' => $a == $b,
+            '=', '==' => $a == $b,
             '===' => $a === $b,
-            '!=' , '<>' => $a != $b,
+            '!=', '<>' => $a != $b,
             '!==' => $a !== $b,
             '<' => $a < $b,
             '>' => $a > $b,
@@ -894,9 +989,18 @@ class Collection implements CollectionInterface
      */
     public function diff(mixed $items): static
     {
-        $items = $items instanceof self ? $items->all() : $items;
-
-        return new static(array_diff($this->items, $items));
+        $other = $items instanceof self ? $items->all() : (array)$items;
+        $set = [];
+        foreach ($other as $x) {
+            $k = is_scalar($x) ? $x : md5(serialize($x));
+            $set[$k] = true;
+        }
+        $out = [];
+        foreach ($this->items as $v) {
+            $k = is_scalar($v) ? $v : md5(serialize($v));
+            if (!isset($set[$k])) $out[] = $v;
+        }
+        return new static($out);
     }
 
     /**
@@ -914,9 +1018,18 @@ class Collection implements CollectionInterface
      */
     public function intersect(mixed $items): static
     {
-        $items = $items instanceof self ? $items->all() : $items;
-
-        return new static(array_intersect($this->items, $items));
+        $other = $items instanceof self ? $items->all() : (array)$items;
+        $set = [];
+        foreach ($other as $x) {
+            $k = is_scalar($x) ? $x : md5(serialize($x));
+            $set[$k] = true;
+        }
+        $out = [];
+        foreach ($this->items as $v) {
+            $k = is_scalar($v) ? $v : md5(serialize($v));
+            if (isset($set[$k])) $out[] = $v;
+        }
+        return new static($out);
     }
 
     /**
@@ -1284,5 +1397,144 @@ class Collection implements CollectionInterface
         }
 
         return $item;
+    }
+
+    public function keyBy(callable|string $key): static
+    {
+        $items = [];
+        if (is_string($key)) {
+            foreach ($this->items as $item) {
+                $k = is_array($item) ? ($item[$key] ?? null) : (is_object($item) ? ($item->{$key} ?? null) : null);
+                $items[$k] = $item;
+            }
+        } else {
+            foreach ($this->items as $item) {
+                $items[$key($item)] = $item;
+            }
+        }
+        return new static($items);
+    }
+
+    public function firstWhere(string|callable $key, mixed $operator = null, mixed $value = null): mixed
+    {
+        if (is_callable($key)) {
+            foreach ($this->items as $item) {
+                if ($key($item)) return $item;
+            }
+            return null;
+        }
+
+        // Chuẩn hoá toán tử
+        if (func_num_args() === 2) {
+            $value = $operator;
+            $operator = '=';
+        }
+        foreach ($this->items as $item) {
+            $current = is_array($item) ? ($item[$key] ?? null) : (is_object($item) ? ($item->{$key} ?? null) : null);
+            $ok = match ($operator) {
+                '=', '==' => $current ==  $value,
+                '===', 'is' => $current === $value,
+                '!=', '<>' => $current !=  $value,
+                '!=='      => $current !== $value,
+                '>'        => $current >   $value,
+                '>='       => $current >=  $value,
+                '<'        => $current <   $value,
+                '<='       => $current <=  $value,
+                'in'       => is_array($value) && in_array($current, $value, true),
+                'not in'   => is_array($value) && !in_array($current, $value, true),
+                default    => false,
+            };
+            if ($ok) return $item;
+        }
+        return null;
+    }
+
+    public function sortKeys(int $flags = SORT_REGULAR): static
+    {
+        $items = $this->items;
+        ksort($items, $flags);
+        return new static($items);
+    }
+
+    public function implode(string|callable $value, string $glue = ''): string
+    {
+        if (is_string($value)) {
+            $arr = [];
+            foreach ($this->items as $item) {
+                $arr[] = is_array($item) ? ($item[$value] ?? '') : (is_object($item) ? ($item->{$value} ?? '') : (string)$item);
+            }
+            return implode($glue, $arr);
+        }
+
+        $arr = [];
+        foreach ($this->items as $item) $arr[] = (string)$value($item);
+        return implode($glue, $arr);
+    }
+
+    /**
+     * Join chuỗi kiểu "a, b and c" (hữu ích cho UI copywriting)
+     */
+    public function join(string $glue = ', ', string $finalGlue = ' and '): string
+    {
+        $arr = array_values($this->items);
+        $count = count($arr);
+        if ($count === 0) return '';
+        if ($count === 1) return (string)$arr[0];
+        return implode($glue, array_slice($arr, 0, -1)) . $finalGlue . $arr[$count - 1];
+    }
+
+    public function mapInto(string $class): static
+    {
+        $items = [];
+        foreach ($this->items as $item) {
+            $items[] = new $class($item);
+        }
+        return new static($items);
+    }
+
+    /**
+     * callback($item, $key) => ['groupKey' => value]
+     */
+    public function mapToGroups(callable $callback): static
+    {
+        $groups = [];
+        foreach ($this->items as $k => $v) {
+            $pair = $callback($v, $k);
+            foreach ($pair as $gk => $gv) {
+                $groups[$gk][] = $gv;
+            }
+        }
+        // Trả về Collection<groupKey => Collection>
+        foreach ($groups as $gk => $list) {
+            $groups[$gk] = new static($list);
+        }
+        return new static($groups);
+    }
+
+    public function toLazy(): LazyCollection
+    {
+        return LazyCollection::make(function () {
+            foreach ($this->items as $item) {
+                yield $item;
+            }
+        });
+    }
+
+    public function mapChunked(int $size, callable $fn): static
+    {
+        if ($size <= 0) throw new \InvalidArgumentException('Chunk size must be > 0.');
+        $out = [];
+        $chunk = [];
+        foreach ($this->items as $item) {
+            $chunk[] = $item;
+            if (count($chunk) === $size) {
+                foreach ($fn($chunk) as $mapped) $out[] = $mapped;
+                $chunk = [];
+            }
+        }
+        if ($chunk) {
+            foreach ($fn($chunk) as $mapped) $out[] = $mapped;
+        }
+        return new static($out);
     }
 }
