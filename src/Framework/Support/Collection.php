@@ -1031,6 +1031,86 @@ class Collection implements CollectionInterface
         }
         return new static($out);
     }
+    /**
+     * Compute the set difference against another collection/array using a derived key.
+     *
+     * Keeps the original keys from the current collection. A value from $this
+     * is kept only if its projected key (via $keySelector) does NOT appear in $items.
+     *
+     * Time complexity: O(n + m) where n = size of $this and m = size of $items.
+     *
+     * @param mixed                $items        A Collection or array (optionally Traversable) to compare against.
+     * @param callable(mixed):mixed $keySelector A function that takes an item and returns a comparable key.
+     *
+     * @return static A new collection containing items unique to $this by the projected key.
+     *
+     * @example
+     *  $a = Collection::make([['id' => 1], ['id' => 2], ['id' => 3]]);
+     *  $b = [['id' => 2]];
+     *  $diff = $a->diffBy($b, fn($x) => $x['id']); // => items with id 1 and 3
+     */
+    public function diffBy(mixed $items, callable $keySelector): static
+    {
+        $other = $items instanceof self ? $items->all() : (array)$items;
+        $set = [];
+        foreach ($other as $x) $set[self::keyOf($x, $keySelector)] = true;
+
+        $out = [];
+        foreach ($this->items as $idx => $v) {
+            $k = self::keyOf($v, $keySelector);
+            if (!isset($set[$k])) $out[$idx] = $v;
+        }
+        return new static($out);
+    }
+    /**
+     * Compute the set intersection with another collection/array using a derived key.
+     *
+     * Keeps the original keys from the current collection. A value from $this
+     * is kept only if its projected key (via $keySelector) DOES appear in $items.
+     *
+     * Time complexity: O(n + m) where n = size of $this and m = size of $items.
+     *
+     * @param mixed                $items        A Collection or array (optionally Traversable) to intersect with.
+     * @param callable(mixed):mixed $keySelector A function that takes an item and returns a comparable key.
+     *
+     * @return static A new collection containing items common by the projected key.
+     *
+     * @example
+     *  $a = Collection::make([['id' => 1], ['id' => 2], ['id' => 3]]);
+     *  $b = [['id' => 2], ['id' => 4]];
+     *  $inter = $a->intersectBy($b, fn($x) => $x['id']); // => item with id 2
+     */
+    public function intersectBy(mixed $items, callable $keySelector): static
+    {
+        $other = $items instanceof self ? $items->all() : (array)$items;
+        $set = [];
+        foreach ($other as $x) $set[self::keyOf($x, $keySelector)] = true;
+
+        $out = [];
+        foreach ($this->items as $idx => $v) {
+            $k = self::keyOf($v, $keySelector);
+            if (isset($set[$k])) $out[$idx] = $v;
+        }
+        return new static($out);
+    }
+    /**
+     * Normalize any projected key to a stable string representation.
+     *
+     * Scalars are string-cast directly. Non-scalars are hashed (see hashAny()) to
+     * produce a deterministic string key suitable for set membership checks.
+     *
+     * @internal
+     *
+     * @param mixed                  $v   The value to project.
+     * @param callable(mixed):mixed  $sel The selector that extracts a comparison key from $v.
+     *
+     * @return string A stable string key for use in hash sets/maps.
+     */
+    private static function keyOf(mixed $v, callable $sel): string
+    {
+        $k = $sel($v);
+        return is_scalar($k) ? (string)$k : self::hashAny($k);
+    }
 
     /**
      * Intersect keys with other collection.
