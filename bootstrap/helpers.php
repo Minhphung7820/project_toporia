@@ -192,3 +192,22 @@ if (!function_exists('clean')) {
         return \Toporia\Framework\Security\XssProtection::clean($value);
     }
 }
+
+if (!function_exists('mail')) {
+    /**
+     * Get the mail manager or send an email.
+     *
+     * @param \Toporia\Framework\Mail\Mailable|null $mailable Mailable to send.
+     * @return \Toporia\Framework\Mail\MailManagerInterface|bool
+     */
+    function mail(?\Toporia\Framework\Mail\Mailable $mailable = null): mixed
+    {
+        $manager = app('mail');
+
+        if ($mailable === null) {
+            return $manager;
+        }
+
+        return $manager->sendMailable($mailable);
+    }
+}
