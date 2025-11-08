@@ -177,13 +177,13 @@ final class Router implements RouterInterface
         return function (Request $req, Response $res) use ($handler, $parameters) {
             // Array handler [ControllerClass::class, 'method']
             if (is_array($handler) && is_string($handler[0])) {
+                // Temporarily bind Request and Response in container for auto-wiring
+                $this->container->instance(Request::class, $req);
+                $this->container->instance(Response::class, $res);
+
+                // Auto-wire controller with all dependencies
                 $controller = $this->container->get($handler[0]);
                 $method = $handler[1];
-
-                // Inject Request and Response into constructor if needed
-                if (method_exists($controller, '__construct')) {
-                    $controller = new $handler[0]($req, $res);
-                }
 
                 return $controller->{$method}(...array_values($parameters));
             }

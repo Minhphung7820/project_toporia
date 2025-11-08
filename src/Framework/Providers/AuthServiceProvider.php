@@ -8,9 +8,11 @@ use App\Domain\User\UserRepository;
 use Toporia\Framework\Auth\AuthManager;
 use Toporia\Framework\Auth\AuthManagerInterface;
 use Toporia\Framework\Auth\Guards\SessionGuard;
+use Toporia\Framework\Auth\Guards\TokenGuard;
 use Toporia\Framework\Auth\UserProvider\RepositoryUserProvider;
 use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Foundation\ServiceProvider;
+use Toporia\Framework\Http\Request;
 
 /**
  * Authentication Service Provider
@@ -44,8 +46,8 @@ class AuthServiceProvider extends ServiceProvider
         $container->singleton(AuthManagerInterface::class, function (ContainerInterface $c) {
             $guardFactories = [
                 'web' => fn() => $this->createSessionGuard($c, 'web'),
+                'api' => fn() => $this->createTokenGuard($c, 'api'),
                 // Add more guards here as needed:
-                // 'api' => fn() => $this->createTokenGuard($c, 'api'),
                 // 'admin' => fn() => $this->createSessionGuard($c, 'admin'),
             ];
 
@@ -103,20 +105,20 @@ class AuthServiceProvider extends ServiceProvider
     }
 
     /**
-     * Example: Create token guard for API authentication.
-     *
-     * Uncomment when implementing Token Guard.
+     * Create a token guard instance for API authentication.
      *
      * @param ContainerInterface $container
-     * @param string $name
+     * @param string $name Guard name.
      * @return TokenGuard
      */
-    // protected function createTokenGuard(ContainerInterface $container, string $name): TokenGuard
-    // {
-    //     $userProvider = new RepositoryUserProvider(
-    //         $container->get(UserRepository::class)
-    //     );
-    
-    //     return new TokenGuard($userProvider, $name);
-    // }
+    protected function createTokenGuard(ContainerInterface $container, string $name): TokenGuard
+    {
+        $userProvider = new RepositoryUserProvider(
+            $container->get(UserRepository::class)
+        );
+
+        $request = $container->get(Request::class);
+
+        return new TokenGuard($userProvider, $request, $name);
+    }
 }

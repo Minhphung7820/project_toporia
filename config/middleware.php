@@ -50,7 +50,8 @@ return [
     */
     'aliases' => [
         // Authentication & Authorization
-        'auth' => Authenticate::class,
+        'auth' => Authenticate::class,  // Uses 'web' guard by default
+        'auth:api' => fn($container) => new Authenticate('api'),  // Uses 'api' guard
 
         // Request/Response handling
         'log' => LogRequest::class,

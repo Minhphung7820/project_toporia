@@ -41,11 +41,10 @@ return [
             'provider' => 'users',
         ],
 
-        // Example API guard (uncomment when implementing TokenGuard)
-        // 'api' => [
-        //     'driver' => 'token',
-        //     'provider' => 'users',
-        // ],
+        'api' => [
+            'driver' => 'token',
+            'provider' => 'users',
+        ],
     ],
 
     /*

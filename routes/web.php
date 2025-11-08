@@ -19,10 +19,20 @@ use App\Presentation\Http\Action\Product\CreateProductAction;
 /** @var Router $router */
 
 // Public routes
-$router->get('/', [HomeController::class, 'index'])->middleware('auth');
-$router->get('/login', [AuthController::class, 'showLogin']);
+$router->get('/', [HomeController::class, 'index']);
+$router->get('/login', [AuthController::class, 'showLoginForm']);
 $router->post('/login', [AuthController::class, 'login']);
-$router->get('/logout', [AuthController::class, 'logout']);
+$router->get('/register', [AuthController::class, 'showRegisterForm']);
+$router->post('/register', [AuthController::class, 'register']);
+
+// Auth routes
+$router->post('/logout', [AuthController::class, 'logout']);
+
+// API routes - Authentication
+$router->post('/api/login', [AuthController::class, 'login']);
+$router->post('/api/register', [AuthController::class, 'register']);
+$router->post('/api/logout', [AuthController::class, 'logout']);
+$router->get('/api/me', [AuthController::class, 'me'])->middleware(['auth:api']);
 
 // Protected routes (require authentication)
 $router->get('/dashboard', [HomeController::class, 'dashboard'], [Authenticate::class]);

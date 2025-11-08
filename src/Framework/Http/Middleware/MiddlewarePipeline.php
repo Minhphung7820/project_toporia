@@ -85,12 +85,12 @@ final class MiddlewarePipeline
     }
 
     /**
-     * Resolve middleware identifier to full class name.
+     * Resolve middleware identifier to full class name or callable.
      *
      * @param string $identifier Middleware alias or class name.
-     * @return string Full middleware class name.
+     * @return string|callable Full middleware class name or callable factory.
      */
-    private function resolveMiddleware(string $identifier): string
+    private function resolveMiddleware(string $identifier): string|callable
     {
         return $this->aliases[$identifier] ?? $identifier;
     }
@@ -98,20 +98,26 @@ final class MiddlewarePipeline
     /**
      * Instantiate middleware from container with auto-wiring.
      *
-     * @param string $middlewareClass Middleware class name.
+     * @param string|callable $middlewareClass Middleware class name or callable factory.
      * @return MiddlewareInterface Middleware instance.
      * @throws \RuntimeException If middleware doesn't implement MiddlewareInterface.
      */
-    private function instantiateMiddleware(string $middlewareClass): MiddlewareInterface
+    private function instantiateMiddleware(string|callable $middlewareClass): MiddlewareInterface
     {
-        $middleware = $this->container->get($middlewareClass);
+        // If it's a callable (closure), call it to get the instance
+        if (is_callable($middlewareClass)) {
+            $middleware = $middlewareClass($this->container);
+        } else {
+            // Otherwise, resolve from container
+            $middleware = $this->container->get($middlewareClass);
+        }
 
         if (!$middleware instanceof MiddlewareInterface) {
             throw new \RuntimeException(
                 sprintf(
-                    'Middleware "%s" must implement %s',
-                    $middlewareClass,
-                    MiddlewareInterface::class
+                    'Middleware must implement %s, got %s',
+                    MiddlewareInterface::class,
+                    is_object($middleware) ? get_class($middleware) : gettype($middleware)
                 )
             );
         }
