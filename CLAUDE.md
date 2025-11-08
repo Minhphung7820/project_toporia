@@ -6,10 +6,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Clean Architecture PHP skeleton with a professional-grade custom framework. The project follows SOLID principles, Clean Architecture patterns, and emphasizes separation of concerns with Framework and Application layers.
 
+## Requirements
+
+- **PHP**: >= 8.1
+- **Composer**: For dependency management
+
+### Optional PHP Extensions
+
+- `ext-redis` - Required for Redis cache and queue drivers
+- `ext-pdo_mysql` - Required for MySQL database support
+- `ext-pdo_pgsql` - Required for PostgreSQL database support
+- `ext-pdo_sqlite` - Required for SQLite database support
+
+See [INSTALLATION.md](INSTALLATION.md) for detailed installation instructions.
+
 ## Development Commands
 
 ### Setup
 ```bash
+composer install
 composer dump-autoload
 ```
 
@@ -1427,3 +1442,605 @@ Model::setConnection($db->connection());
 - **Liskov Substitution**: All implementations fulfill interface contracts
 - **Interface Segregation**: Small, focused interfaces (e.g., `RouteInterface`, `EventInterface`)
 - **Dependency Inversion**: Depend on abstractions (interfaces), not concretions
+
+## Security Features
+
+The framework includes comprehensive security features following industry best practices.
+
+### CSRF Protection
+
+**Components:**
+- `CsrfTokenManagerInterface` - Contract for CSRF token management
+- `SessionCsrfTokenManager` - Session-based token storage
+- `CsrfProtection` middleware - Automatic validation for state-changing requests
+
+**Usage:**
+
+```php
+// In views - generate CSRF token field
+<?= csrf_field() ?>
+
+// Or get token value
+<meta name="csrf-token" content="<?= csrf_token() ?>">
+
+// Middleware automatically validates POST, PUT, PATCH, DELETE requests
+$router->post('/products', [ProductsController::class, 'store'])
+    ->middleware([CsrfProtection::class]);
+
+// Token can be sent via:
+// 1. Request body: _token, _csrf, csrf_token
+// 2. Header: X-CSRF-TOKEN or X-XSRF-TOKEN
+```
+
+**Configuration** ([config/security.php](config/security.php)):
+```php
+'csrf' => [
+    'enabled' => true,
+    'token_name' => '_token',
+],
+```
+
+### XSS Protection
+
+**Utility Class:** `Toporia\Framework\Security\XssProtection`
+
+**Methods:**
+```php
+use Toporia\Framework\Security\XssProtection;
+
+// Escape HTML (prevents XSS)
+$safe = XssProtection::escape($userInput);
+$safe = e($userInput); // Helper function
+
+// Remove all HTML tags
+$clean = XssProtection::clean($userInput);
+$clean = clean($userInput); // Helper function
+
+// Sanitize HTML (allow specific tags)
+$sanitized = XssProtection::sanitize($html, '<p><a><strong>');
+
+// Purify rich text (more permissive)
+$purified = XssProtection::purify($richTextHtml);
+
+// Escape for JavaScript
+$jsValue = XssProtection::escapeJs($value);
+
+// Escape for URLs
+$urlParam = XssProtection::escapeUrl($value);
+
+// Clean arrays recursively
+$cleanData = XssProtection::cleanArray($_POST);
+```
+
+**Security Headers Middleware:**
+
+```php
+use Toporia\Framework\Http\Middleware\AddSecurityHeaders;
+
+// Apply security headers globally
+$router->get('/', [HomeController::class, 'index'])
+    ->middleware([AddSecurityHeaders::class]);
+```
+
+**Default Headers:**
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: SAMEORIGIN`
+- `X-XSS-Protection: 1; mode=block`
+- `Content-Security-Policy` (configurable)
+- `Strict-Transport-Security` (HSTS for HTTPS)
+- `Referrer-Policy`
+- `Permissions-Policy`
+
+### Authorization (Gates & Policies)
+
+**Gate System** - Closure-based authorization
+
+```php
+use Toporia\Framework\Auth\Gate;
+
+$gate = app('gate');
+
+// Define abilities
+$gate->define('update-post', function ($user, $post) {
+    return $user->id === $post->author_id;
+});
+
+$gate->define('delete-post', fn($user, $post) => $user->isAdmin());
+
+// Check authorization
+if ($gate->allows('update-post', $post)) {
+    // User can update
+}
+
+if ($gate->denies('delete-post', $post)) {
+    // User cannot delete
+}
+
+// Authorize or throw exception
+$gate->authorize('update-post', $post); // Throws AuthorizationException
+
+// Check multiple abilities
+$gate->any(['update-post', 'delete-post'], $post); // Any allowed?
+$gate->all(['view-post', 'update-post'], $post);   // All allowed?
+
+// Check for specific user
+$gate->forUser($otherUser)->allows('update-post', $post);
+```
+
+**Policy Classes** - Resource-based authorization
+
+```php
+class PostPolicy
+{
+    public function view($user, $post): bool
+    {
+        return $post->is_published || $user->id === $post->author_id;
+    }
+
+    public function update($user, $post): bool
+    {
+        return $user->id === $post->author_id;
+    }
+
+    public function delete($user, $post): bool
+    {
+        return $user->isAdmin();
+    }
+}
+
+// Register policy
+$gate->policy(Post::class, PostPolicy::class);
+
+// Use with resource
+$gate->check('update', $post); // Calls Post@update
+```
+
+**Authorization Middleware:**
+
+```php
+use Toporia\Framework\Http\Middleware\Authorize;
+
+// Protect routes
+$router->put('/posts/{id}', [PostController::class, 'update'])
+    ->middleware([Authorize::can($gate, 'update-post')]);
+```
+
+## Cache System
+
+Multi-driver cache system with PSR-16 inspired interface.
+
+**Drivers:**
+- **File** - Filesystem-based (no dependencies)
+- **Redis** - High-performance (requires phpredis)
+- **Memory** - In-memory (for testing, single request)
+
+**Configuration** ([config/cache.php](config/cache.php)):
+```php
+'default' => env('CACHE_DRIVER', 'file'),
+'stores' => [
+    'file' => [
+        'driver' => 'file',
+        'path' => __DIR__ . '/../storage/cache',
+    ],
+    'redis' => [
+        'driver' => 'redis',
+        'host' => env('REDIS_HOST', '127.0.0.1'),
+        'port' => env('REDIS_PORT', 6379),
+    ],
+],
+```
+
+**Usage:**
+
+```php
+$cache = app('cache');
+
+// Basic operations
+$cache->set('user:1', $user, 3600); // TTL in seconds
+$user = $cache->get('user:1');
+$cache->has('user:1');
+$cache->delete('user:1');
+$cache->clear(); // Clear all
+
+// Forever (no expiration)
+$cache->forever('settings', $settings);
+
+// Remember pattern (get or generate)
+$users = $cache->remember('users.all', 3600, function() {
+    return User::all();
+});
+
+$config = $cache->rememberForever('config', fn() => loadConfig());
+
+// Pull (get and delete)
+$value = $cache->pull('temp_data');
+
+// Increment/Decrement
+$cache->increment('page_views');
+$cache->decrement('stock', 5);
+
+// Multiple operations
+$cache->setMultiple(['key1' => 'val1', 'key2' => 'val2'], 3600);
+$values = $cache->getMultiple(['key1', 'key2']);
+$cache->deleteMultiple(['key1', 'key2']);
+
+// Using specific driver
+$redis = $cache->driver('redis');
+$redis->set('key', 'value');
+```
+
+**Helper Functions:**
+```php
+// Get cache instance
+$cache = cache();
+
+// Get cached value
+$value = cache('key', 'default');
+```
+
+## Cookie Management
+
+Secure cookie handling with encryption support.
+
+**Cookie Value Object:**
+```php
+use Toporia\Framework\Http\Cookie;
+
+// Create cookies
+$cookie = Cookie::make('user_id', '123', 60); // 60 minutes
+$cookie = Cookie::forever('remember', 'token');
+$cookie = Cookie::forget('session'); // Delete cookie
+
+// With options
+$cookie = Cookie::make('secure_data', 'value', 60, [
+    'path' => '/admin',
+    'domain' => '.example.com',
+    'secure' => true,
+    'httpOnly' => true,
+    'sameSite' => 'Strict'
+]);
+
+// Send cookie
+$cookie->send();
+```
+
+**Cookie Jar** - Encrypted cookie management:
+
+```php
+$cookies = app('cookie');
+
+// Set encrypted cookie
+$cookies->make('user_pref', 'dark_mode', 60);
+
+// Get encrypted cookie
+$pref = $cookies->get('user_pref');
+
+// Queue cookies to send later
+$cookies->make('session', $sessionId, 120)
+        ->forever('remember', $token)
+        ->forget('temp');
+
+// Send all queued
+$cookies->sendQueued();
+```
+
+**Configuration** ([config/security.php](config/security.php)):
+```php
+'cookie' => [
+    'encryption_key' => env('APP_KEY'),
+    'secure' => env('APP_ENV') === 'production',
+    'http_only' => true,
+    'same_site' => 'Lax',
+],
+```
+
+## Rate Limiting
+
+Prevent abuse with configurable rate limiting.
+
+**Rate Limiter Interface:**
+- **CacheRateLimiter** - Uses cache backend (works with all cache drivers)
+
+**Configuration:**
+```php
+use Toporia\Framework\RateLimit\CacheRateLimiter;
+
+$limiter = new CacheRateLimiter(app('cache'));
+
+// Check rate limit
+if ($limiter->attempt('api:' . $userId, 60, 60)) {
+    // Allowed (60 requests per minute)
+} else {
+    // Rate limited
+}
+
+// Get remaining attempts
+$remaining = $limiter->remaining('api:' . $userId, 60);
+
+// Time until reset
+$seconds = $limiter->availableIn('api:' . $userId);
+
+// Clear limits
+$limiter->clear('api:' . $userId);
+```
+
+**Throttle Middleware:**
+
+```php
+use Toporia\Framework\Http\Middleware\ThrottleRequests;
+
+// Limit to 60 requests per minute
+$router->get('/api/data', [ApiController::class, 'index'])
+    ->middleware([
+        ThrottleRequests::with($limiter, 60, 1) // 60 attempts, 1 minute
+    ]);
+
+// The middleware:
+// - Automatically identifies users (authenticated ID or IP)
+// - Adds rate limit headers to response
+// - Returns 429 Too Many Requests when exceeded
+```
+
+**Response Headers:**
+- `X-RateLimit-Limit` - Maximum requests allowed
+- `X-RateLimit-Remaining` - Requests remaining
+- `X-RateLimit-Reset` - Unix timestamp when limit resets
+- `Retry-After` - Seconds to wait (when rate limited)
+
+## Queue System
+
+Asynchronous job processing with multiple drivers.
+
+**Drivers:**
+- **Sync** - Execute immediately (testing/development)
+- **Database** - Store in database table
+- **Redis** - High-performance queue with delayed jobs support
+
+**Configuration** ([config/queue.php](config/queue.php)):
+```php
+'default' => env('QUEUE_CONNECTION', 'sync'),
+'connections' => [
+    'sync' => ['driver' => 'sync'],
+    'database' => [
+        'driver' => 'database',
+        'table' => 'jobs',
+    ],
+    'redis' => [
+        'driver' => 'redis',
+        'host' => env('REDIS_HOST', '127.0.0.1'),
+    ],
+],
+```
+
+**Creating Jobs:**
+
+```php
+use Toporia\Framework\Queue\Job;
+
+class SendEmailJob extends Job
+{
+    public function __construct(
+        private string $to,
+        private string $subject,
+        private string $message
+    ) {
+        parent::__construct();
+    }
+
+    public function handle(): void
+    {
+        // Send email logic
+        mail($this->to, $this->subject, $this->message);
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        // Handle failure (log, notify, etc.)
+        error_log("Email failed to {$this->to}: " . $exception->getMessage());
+    }
+}
+```
+
+**Dispatching Jobs:**
+
+```php
+$queue = app('queue');
+
+// Push to queue
+$job = new SendEmailJob('user@example.com', 'Hello', 'Message');
+$queue->push($job);
+
+// Delayed execution
+$queue->later($job, 300); // 5 minutes delay
+
+// Specific queue
+$job->onQueue('emails');
+$queue->push($job, 'emails');
+
+// Configure retries
+$job->tries(5); // Max 5 attempts
+```
+
+**Queue Worker:**
+
+```php
+use Toporia\Framework\Queue\Worker;
+
+$queue = app('queue')->driver('database');
+$worker = new Worker($queue, maxJobs: 100, sleep: 3);
+
+// Process jobs
+$worker->work('default'); // Process from 'default' queue
+```
+
+**Database Schema:**
+
+```php
+// jobs table
+CREATE TABLE jobs (
+    id VARCHAR(255) PRIMARY KEY,
+    queue VARCHAR(255) NOT NULL,
+    payload TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    available_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+);
+
+// failed_jobs table
+CREATE TABLE failed_jobs (
+    id VARCHAR(255) PRIMARY KEY,
+    queue VARCHAR(255) NOT NULL,
+    payload TEXT NOT NULL,
+    exception TEXT NOT NULL,
+    failed_at INTEGER NOT NULL
+);
+```
+
+## Task Scheduling
+
+Cron-like task scheduler within the application.
+
+**Scheduler:**
+
+```php
+use Toporia\Framework\Schedule\Scheduler;
+
+$schedule = app('schedule');
+
+// Schedule tasks using fluent API
+$schedule->call(function () {
+    // Clean up old logs
+    cleanLogs();
+})->daily();
+
+$schedule->call(function () {
+    // Send daily reports
+    sendReports();
+})->dailyAt('08:00');
+
+$schedule->call(function () {
+    // Backup database
+    backupDatabase();
+})->weekly()->sundays()->at('02:00');
+
+$schedule->exec('php artisan inspire')
+    ->hourly()
+    ->description('Display inspirational quote');
+
+$schedule->job(ProcessReportsJob::class)
+    ->everyMinutes(15)
+    ->weekdays();
+```
+
+**Frequency Methods:**
+```php
+->everyMinute()           // Every minute
+->everyMinutes(5)         // Every 5 minutes
+->hourly()                // Every hour
+->hourlyAt(15)            // At :15 of every hour
+->daily()                 // Daily at midnight
+->dailyAt('13:00')        // Daily at 1 PM
+->weekly()                // Sundays at midnight
+->monthly()               // 1st of month at midnight
+->weekdays()              // Mon-Fri at midnight
+->weekends()              // Sat-Sun at midnight
+->mondays()               // Every Monday
+->tuesdays()              // Every Tuesday
+->wednesdays()            // Every Wednesday
+->thursdays()             // Every Thursday
+->fridays()               // Every Friday
+->saturdays()             // Every Saturday
+->sundays()               // Every Sunday
+```
+
+**Advanced Options:**
+```php
+// Custom cron expression
+$schedule->call($callback)->cron('*/15 * * * *');
+
+// Timezone
+$schedule->call($callback)->daily()->timezone('America/New_York');
+
+// Conditional execution
+$schedule->call($callback)->daily()->when(function () {
+    return shouldRun();
+});
+
+// Skip conditions
+$schedule->call($callback)->daily()->skip(function () {
+    return shouldSkip();
+});
+```
+
+**Running the Scheduler:**
+
+```php
+// In a cron job (run every minute):
+// * * * * * php /path/to/project/schedule.php
+
+// schedule.php
+require __DIR__ . '/bootstrap/app.php';
+
+$schedule = app('schedule');
+
+// Define your schedule here or load from config
+
+// Run due tasks
+$schedule->runDueTasks();
+```
+
+**List All Tasks:**
+```php
+$tasks = $schedule->listTasks();
+foreach ($tasks as $task) {
+    echo "{$task['description']}: {$task['expression']}\n";
+}
+```
+
+## Security Best Practices
+
+**1. SQL Injection Prevention:**
+- Use Query Builder with parameter binding (automatic)
+- Use ORM models (automatic escaping)
+- Never concatenate user input into SQL
+
+```php
+// ✅ Safe - parameterized query
+$products = $query->table('products')->where('id', $userId)->get();
+
+// ❌ Unsafe - string concatenation
+$products = $query->raw("SELECT * FROM products WHERE id = {$userId}");
+```
+
+**2. XSS Prevention:**
+- Always escape output in views
+- Use `e()` helper or `XssProtection::escape()`
+- Sanitize rich text with `XssProtection::purify()`
+
+```php
+// ✅ Safe
+<h1><?= e($userInput) ?></h1>
+
+// ❌ Unsafe
+<h1><?= $userInput ?></h1>
+```
+
+**3. CSRF Protection:**
+- Enable globally in [config/security.php](config/security.php)
+- Include `csrf_field()` in all forms
+- Middleware validates automatically
+
+**4. Authentication & Authorization:**
+- Always check `auth()->check()` before accessing user data
+- Use `Gate::authorize()` for authorization
+- Apply `Authenticate` and `Authorize` middleware to protected routes
+
+**5. Rate Limiting:**
+- Apply to all public APIs
+- Apply to authentication endpoints (prevent brute force)
+- Configure appropriate limits per endpoint
+
+**6. Secure Headers:**
+- Use `AddSecurityHeaders` middleware globally
+- Configure CSP for your application needs
+- Enable HSTS in production (HTTPS only)

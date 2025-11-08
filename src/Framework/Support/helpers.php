@@ -290,3 +290,91 @@ if (!function_exists('once')) {
         }
     }
 }
+
+// =============================================================================
+// Security Helper Functions
+// =============================================================================
+
+if (!function_exists('csrf_token')) {
+    /**
+     * Get the current CSRF token.
+     */
+    function csrf_token(): string
+    {
+        if (function_exists('app') && app()->has('csrf')) {
+            return app('csrf')->getToken();
+        }
+
+        // Fallback for standalone usage
+        if (isset($_SESSION['_csrf_token'])) {
+            return $_SESSION['_csrf_token'];
+        }
+
+        throw new RuntimeException('CSRF token manager not available');
+    }
+}
+
+if (!function_exists('csrf_field')) {
+    /**
+     * Generate a hidden CSRF token field for forms.
+     */
+    function csrf_field(): string
+    {
+        $token = csrf_token();
+        return '<input type="hidden" name="_token" value="' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8') . '">';
+    }
+}
+
+if (!function_exists('e')) {
+    /**
+     * Escape HTML special characters (alias for XssProtection::escape).
+     *
+     * @param string $value Value to escape
+     * @return string Escaped value
+     */
+    function e(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+if (!function_exists('clean')) {
+    /**
+     * Remove all HTML tags from a string.
+     *
+     * @param string $value Value to clean
+     * @return string Cleaned value
+     */
+    function clean(string $value): string
+    {
+        return strip_tags($value);
+    }
+}
+
+if (!function_exists('cache')) {
+    /**
+     * Get cache instance or retrieve/store cached value.
+     *
+     * @param string|null $key Cache key
+     * @param mixed $default Default value or closure
+     * @return mixed Cache instance or cached value
+     */
+    function cache(?string $key = null, mixed $default = null): mixed
+    {
+        if (function_exists('app') && app()->has('cache')) {
+            $cache = app('cache');
+
+            if ($key === null) {
+                return $cache;
+            }
+
+            if ($default instanceof Closure) {
+                return $cache->remember($key, $default);
+            }
+
+            return $cache->get($key, $default);
+        }
+
+        throw new RuntimeException('Cache manager not available');
+    }
+}

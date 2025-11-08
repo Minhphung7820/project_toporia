@@ -36,8 +36,7 @@ abstract class DatabaseRepository
      */
     public function __construct(
         protected ConnectionInterface $connection
-    ) {
-    }
+    ) {}
 
     /**
      * Create a new query builder for the table.
@@ -67,7 +66,7 @@ abstract class DatabaseRepository
      */
     public function findAll(): array
     {
-        return $this->query()->get();
+        return $this->query()->get()->toArray();
     }
 
     /**
@@ -84,7 +83,7 @@ abstract class DatabaseRepository
             $query->where($column, $value);
         }
 
-        return $query->get();
+        return $query->get()->toArray();
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace App\Presentation\Http\Controllers;
 
+use Toporia\Framework\Support\Accessors\Auth;
+use Toporia\Framework\Support\Accessors\DB;
 use Toporia\Framework\Support\Result;
 use Toporia\Framework\Support\Str;
 
@@ -111,6 +113,7 @@ final class HomeController extends BaseController
 
         // Return demo data as JSON
         return $this->response->json([
+            'auth' => Auth::check(),
             'title' => 'Collection & String Utilities Demo',
             'examples' => [
                 'numbers' => $numbers->all(),

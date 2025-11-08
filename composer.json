@@ -5,6 +5,14 @@
   "require": {
     "php": ">=8.1"
   },
+  "require-dev": {
+    "jetbrains/phpstorm-stubs": "*"
+  },
+  "suggest": {
+    "ext-redis": "Required for Redis cache and queue drivers",
+    "ext-pdo_mysql": "Required for MySQL database support",
+    "ext-pdo_pgsql": "Required for PostgreSQL database support"
+  },
   "autoload": {
     "psr-4": {
       "Toporia\\Framework\\": "src/Framework/",

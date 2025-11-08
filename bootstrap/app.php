@@ -91,6 +91,18 @@ $app->boot();
 
 /*
 |--------------------------------------------------------------------------
+| Set Container for Service Accessors
+|--------------------------------------------------------------------------
+|
+| Set the container instance for the ServiceAccessor system.
+| This enables static-like access to services (e.g., Cache::get()).
+|
+*/
+
+\Toporia\Framework\Foundation\ServiceAccessor::setContainer($app->getContainer());
+
+/*
+|--------------------------------------------------------------------------
 | Return The Application
 |--------------------------------------------------------------------------
 |
