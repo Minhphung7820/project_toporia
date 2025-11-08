@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Toporia\Framework\Queue;
 
+use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Database\Connection;
 
 /**
@@ -17,10 +18,12 @@ final class QueueManager implements QueueManagerInterface
     private array $drivers = [];
     private ?string $defaultDriver = null;
     private array $config;
+    private ?ContainerInterface $container = null;
 
-    public function __construct(array $config = [])
+    public function __construct(array $config = [], ?ContainerInterface $container = null)
     {
         $this->config = $config;
+        $this->container = $container;
         $this->defaultDriver = $config['default'] ?? 'sync';
     }
 
@@ -67,13 +70,16 @@ final class QueueManager implements QueueManagerInterface
      */
     private function createDatabaseQueue(array $config): DatabaseQueue
     {
-        // This would typically get the Connection from the container
-        // For now, we'll assume it's passed in the config
-        if (!isset($config['connection'])) {
-            throw new \InvalidArgumentException('Database queue requires connection in config');
+        // Get database connection from container lazily
+        if (isset($config['connection'])) {
+            $connection = $config['connection'];
+        } elseif ($this->container && $this->container->has('db')) {
+            $connection = $this->container->get('db');
+        } else {
+            throw new \InvalidArgumentException('Database queue requires connection');
         }
 
-        return new DatabaseQueue($config['connection']);
+        return new DatabaseQueue($connection);
     }
 
     /**

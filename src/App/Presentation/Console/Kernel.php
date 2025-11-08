@@ -6,6 +6,7 @@ namespace App\Presentation\Console;
 
 use Toporia\Framework\Console\Application;
 use Toporia\Framework\Console\Command;
+use Toporia\Framework\Console\Commands\MigrateCommand;
 use App\Application\Console\Commands\CacheClearCommand;
 use App\Application\Console\Commands\QueueWorkCommand;
 use App\Application\Console\Commands\ScheduleRunCommand;
@@ -31,6 +32,9 @@ final class Kernel
     public function commands(): array
     {
         return [
+            // Database commands
+            MigrateCommand::class,
+
             // Cache commands
             CacheClearCommand::class,
 

@@ -75,7 +75,7 @@ $app->registerProviders([
     \Toporia\Framework\Providers\QueueServiceProvider::class,     // Queue system
     \Toporia\Framework\Providers\ScheduleServiceProvider::class,  // Task scheduler
     \Toporia\Framework\Providers\MailServiceProvider::class,      // Mail system
-    // DatabaseServiceProvider::class, // Uncomment when you need database
+    DatabaseServiceProvider::class,                               // Database system
 
     // Application providers
     AppServiceProvider::class,

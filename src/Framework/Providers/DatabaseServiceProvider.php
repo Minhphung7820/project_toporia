@@ -8,7 +8,6 @@ use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Database\Connection;
 use Toporia\Framework\Database\ConnectionInterface;
 use Toporia\Framework\Database\DatabaseManager;
-use Toporia\Framework\Database\ORM\Model;
 use Toporia\Framework\Foundation\ServiceProvider;
 
 /**
@@ -29,8 +28,8 @@ class DatabaseServiceProvider extends ServiceProvider
             return new DatabaseManager($config);
         });
 
-        // Default connection alias
-        $container->bind('db', fn(ContainerInterface $c) => $c->get(DatabaseManager::class)->connection());
+        // Default connection alias (lazy - only connects when actually used)
+        $container->singleton('db', fn(ContainerInterface $c) => $c->get(DatabaseManager::class)->connection());
         $container->bind(ConnectionInterface::class, fn(ContainerInterface $c) => $c->get('db'));
         $container->bind(Connection::class, fn(ContainerInterface $c) => $c->get('db'));
     }
@@ -40,9 +39,9 @@ class DatabaseServiceProvider extends ServiceProvider
      */
     public function boot(ContainerInterface $container): void
     {
-        // Set default connection for ORM models
-        $db = $container->get(DatabaseManager::class);
-        Model::setConnection($db->connection());
+        // Note: We don't eagerly connect here.
+        // Connection will be established lazily when first used.
+        // This prevents boot-time connection errors.
     }
 
     /**
@@ -58,17 +57,18 @@ class DatabaseServiceProvider extends ServiceProvider
             $defaultConnection = $config->get('database.default', 'mysql');
             $connections = $config->get('database.connections', []);
 
-            if (!empty($connections)) {
-                return [$defaultConnection => $connections[$defaultConnection]];
+            if (!empty($connections) && isset($connections[$defaultConnection])) {
+                return ['default' => $connections[$defaultConnection]];
             }
         } catch (\Throwable $e) {
             // Config not available, use fallback
         }
 
         // Fallback to environment variables
+        $driver = env('DB_CONNECTION', 'mysql');
         return [
             'default' => [
-                'driver' => env('DB_DRIVER', 'mysql'),
+                'driver' => $driver,
                 'host' => env('DB_HOST', 'localhost'),
                 'port' => (int) env('DB_PORT', 3306),
                 'database' => env('DB_NAME', 'project_topo'),

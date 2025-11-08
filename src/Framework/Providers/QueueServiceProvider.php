@@ -24,12 +24,11 @@ final class QueueServiceProvider extends ServiceProvider
                 ? $c->get('config')->get('queue', [])
                 : $this->getDefaultConfig();
 
-            // Inject database connection if available
-            if (isset($config['connections']['database']) && $c->has('db')) {
-                $config['connections']['database']['connection'] = $c->get('db');
-            }
+            // Note: Database connection injection is handled lazily by QueueManager
+            // when the database driver is actually used, not during registration.
+            // This prevents boot-time connection errors.
 
-            return new QueueManager($config);
+            return new QueueManager($config, $c);
         });
 
         $container->bind(QueueManagerInterface::class, fn($c) => $c->get(QueueManager::class));
