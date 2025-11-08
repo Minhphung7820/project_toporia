@@ -96,6 +96,15 @@ interface ConnectionInterface
     public function select(string $query, array $bindings = []): array;
 
     /**
+     * Execute a SELECT query and return first result.
+     *
+     * @param string $query SQL query.
+     * @param array $bindings Parameter bindings.
+     * @return array<string, mixed>|null
+     */
+    public function selectOne(string $query, array $bindings = []): ?array;
+
+    /**
      * Execute an INSERT, UPDATE, or DELETE statement.
      *
      * @param string $query SQL query.
