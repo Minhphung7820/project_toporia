@@ -29,16 +29,51 @@ class RowCollection extends Collection
   }
 
   /**
-   * Return the first row where $row[$key] === $value.
+   * Find first row where column matches value.
    *
-   * @param string $key
-   * @param mixed  $value
-   * @return array<string,mixed>|null
+   * Supports three forms:
+   * - firstWhere('status', 'active')  // key = value
+   * - firstWhere('price', '>', 100)   // key operator value
+   * - firstWhere(fn($row) => $row['active'])  // callback
+   *
+   * @param string|callable $key
+   * @param mixed $operator
+   * @param mixed $value
+   * @return mixed
    */
-  public function firstWhere(string $key, mixed $value): ?array
+  public function firstWhere(string|callable $key, mixed $operator = null, mixed $value = null): mixed
   {
+    // Callback form
+    if (is_callable($key)) {
+      foreach ($this->all() as $k => $row) {
+        if ($key($row, $k)) return $row;
+      }
+      return null;
+    }
+
+    // Two-argument form: firstWhere('status', 'active')
+    if ($value === null) {
+      $value = $operator;
+      $operator = '=';
+    }
+
+    // Three-argument form: firstWhere('price', '>', 100)
     foreach ($this->all() as $row) {
-      if (($row[$key] ?? null) === $value) return $row;
+      $actual = $row[$key] ?? null;
+
+      $matches = match($operator) {
+        '=' => $actual === $value,
+        '==' => $actual == $value,
+        '!=' => $actual != $value,
+        '!==' => $actual !== $value,
+        '<' => $actual < $value,
+        '>' => $actual > $value,
+        '<=' => $actual <= $value,
+        '>=' => $actual >= $value,
+        default => $actual === $value,
+      };
+
+      if ($matches) return $row;
     }
     return null;
   }
