@@ -640,14 +640,23 @@ class Collection implements CollectionInterface
     {
         $total = 0;
         if ($callback === null) {
-            foreach ($this->items as $v) $total += $v;
+            foreach ($this->items as $v) {
+                $total += is_numeric($v) ? $v : 0;
+            }
             return $total;
         }
-        $extract = is_callable($callback)
-            ? $callback
-            : fn($item) => is_array($item) ? ($item[$callback] ?? 0) : (is_object($item) ? ($item->{$callback} ?? 0) : 0);
 
-        foreach ($this->items as $k => $v) $total += $extract($v, $k);
+        // Check string first, then callable (since string can be callable too)
+        if (is_string($callback)) {
+            $extract = fn($item) => is_array($item) ? ($item[$callback] ?? 0) : (is_object($item) ? ($item->{$callback} ?? 0) : 0);
+        } else {
+            $extract = $callback;
+        }
+
+        foreach ($this->items as $k => $v) {
+            $val = $extract($v, $k);
+            $total += is_numeric($val) ? $val : 0;
+        }
         return $total;
     }
 
@@ -1110,6 +1119,35 @@ class Collection implements CollectionInterface
     {
         $k = $sel($v);
         return is_scalar($k) ? (string)$k : self::hashAny($k);
+    }
+
+    /**
+     * Hash any value to a stable string representation.
+     *
+     * Uses JSON encoding for arrays/objects to produce deterministic hashes.
+     *
+     * @internal
+     *
+     * @param mixed $value The value to hash.
+     *
+     * @return string A stable hash string.
+     */
+    private static function hashAny(mixed $value): string
+    {
+        if ($value === null) {
+            return 'null';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (is_scalar($value)) {
+            return (string)$value;
+        }
+
+        // For arrays and objects, use stable JSON encoding
+        return md5(json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION));
     }
 
     /**

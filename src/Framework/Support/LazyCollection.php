@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Toporia\Framework\Support;
 
 use ArrayAccess;
-use ArrayIterator;
 use Countable;
 use Generator;
 use InvalidArgumentException;
@@ -389,8 +388,12 @@ class LazyCollection implements IteratorAggregate, Countable, CollectionInterfac
     /**
      * Flatten lazily.
      */
-    public function flatten(int $depth = INF): static
+    public function flatten(int|float $depth = INF): static
     {
+        if ($depth === INF) {
+            $depth = PHP_INT_MAX;
+        }
+
         return new static(function () use ($depth) {
             foreach ($this->getIterator() as $item) {
                 if (!is_array($item) && !$item instanceof Collection) {
@@ -565,30 +568,32 @@ class LazyCollection implements IteratorAggregate, Countable, CollectionInterfac
     public function zip(mixed ...$arrays): static
     {
         return new static(function () use ($arrays) {
-            // Chuẩn hoá thành Iterator (ArrayIterator/Generator/Traversable)
-            $iterators = array_map(function ($items) {
-                if ($items instanceof Traversable) return $items;
-                if (is_array($items)) return new ArrayIterator($items);
-                // single value
-                return new ArrayIterator([$items]);
-            }, array_merge([$this->getIterator()], $arrays));
+            // Convert all sources to arrays first (simplest approach)
+            $iterators = [];
 
-            // Prime tất cả
-            foreach ($iterators as $it) {
-                if (method_exists($it, 'rewind')) $it->rewind();
+            // First iterator from current collection
+            $iterators[] = iterator_to_array($this->getIterator(), false);
+
+            // Convert remaining arguments to arrays
+            foreach ($arrays as $arr) {
+                if ($arr instanceof Traversable) {
+                    $iterators[] = iterator_to_array($arr, false);
+                } elseif (is_array($arr)) {
+                    $iterators[] = array_values($arr);
+                } else {
+                    // single value
+                    $iterators[] = [$arr];
+                }
             }
 
-            while (true) {
+            // Find minimum length
+            $minLength = min(array_map('count', $iterators));
+
+            // Zip by index
+            for ($i = 0; $i < $minLength; $i++) {
                 $row = [];
-                foreach ($iterators as $it) {
-                    if (!$it->valid()) {
-                        return; // stop khi 1 iterator hết
-                    }
-                    $row[] = $it->current();
-                }
-                // advance tất cả sau khi đọc current
-                foreach ($iterators as $it) {
-                    $it->next();
+                foreach ($iterators as $iter) {
+                    $row[] = $iter[$i];
                 }
                 yield new Collection($row);
             }
@@ -819,5 +824,218 @@ class LazyCollection implements IteratorAggregate, Countable, CollectionInterfac
         if ($callback === null)   return fn($v) => $v;
         if (is_string($callback)) return fn($v) => is_array($v) ? ($v[$callback] ?? null) : (is_object($v) ? ($v->{$callback} ?? null) : null);
         return $callback;
+    }
+
+    /**
+     * Group items by key or callback (terminal - returns eager Collection of Collections).
+     *
+     * @param string|callable $key
+     * @return Collection<array-key, Collection>
+     */
+    public function groupBy(string|callable $key): Collection
+    {
+        $callback = is_callable($key) ? $key : fn($item) => is_array($item) ? ($item[$key] ?? null) : (is_object($item) ? ($item->{$key} ?? null) : null);
+
+        $groups = [];
+
+        foreach ($this->getIterator() as $k => $item) {
+            $groupKey = $callback($item, $k);
+
+            if (!isset($groups[$groupKey])) {
+                $groups[$groupKey] = [];
+            }
+
+            $groups[$groupKey][$k] = $item;
+        }
+
+        return new Collection(array_map(fn($group) => new Collection($group), $groups));
+    }
+
+    /**
+     * Partition into two collections based on callback (terminal).
+     *
+     * @param callable $callback
+     * @return array{0: Collection, 1: Collection}
+     */
+    public function partition(callable $callback): array
+    {
+        $passed = [];
+        $failed = [];
+
+        foreach ($this->getIterator() as $key => $value) {
+            if ($callback($value, $key)) {
+                $passed[$key] = $value;
+            } else {
+                $failed[$key] = $value;
+            }
+        }
+
+        return [new Collection($passed), new Collection($failed)];
+    }
+
+    /**
+     * Sort collection (terminal - returns eager Collection).
+     *
+     * @param callable|null $callback
+     * @return Collection
+     */
+    public function sort(callable $callback = null): Collection
+    {
+        $items = $this->all();
+
+        if ($callback === null) {
+            asort($items);
+        } else {
+            uasort($items, $callback);
+        }
+
+        return new Collection($items);
+    }
+
+    /**
+     * Sort by key (terminal - returns eager Collection).
+     *
+     * @param string|callable $callback
+     * @param bool $descending
+     * @return Collection
+     */
+    public function sortBy(string|callable $callback, bool $descending = false): Collection
+    {
+        $extract = is_callable($callback)
+            ? $callback
+            : fn($item) => is_array($item) ? ($item[$callback] ?? null) : (is_object($item) ? ($item->{$callback} ?? null) : null);
+
+        $decorated = [];
+        foreach ($this->getIterator() as $k => $it) {
+            $decorated[] = [$extract($it), $k, $it];
+        }
+
+        usort($decorated, static function ($a, $b) use ($descending) {
+            $cmp = $a[0] <=> $b[0];
+            return $descending ? -$cmp : $cmp;
+        });
+
+        $out = [];
+        foreach ($decorated as $row) {
+            [, $origKey, $val] = $row;
+            $out[$origKey] = $val;
+        }
+        return new Collection($out);
+    }
+
+    /**
+     * Reverse collection (terminal - returns eager Collection).
+     *
+     * @return Collection
+     */
+    public function reverse(): Collection
+    {
+        return new Collection(array_reverse($this->all(), true));
+    }
+
+    /**
+     * Get last item (terminal).
+     *
+     * @param callable|null $callback
+     * @param mixed $default
+     * @return mixed
+     */
+    public function last(callable $callback = null, mixed $default = null): mixed
+    {
+        $result = $default;
+
+        foreach ($this->getIterator() as $key => $value) {
+            if ($callback === null || $callback($value, $key)) {
+                $result = $value;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Merge with other collections/arrays (lazy).
+     *
+     * @param mixed ...$arrays
+     * @return static
+     */
+    public function merge(mixed ...$arrays): static
+    {
+        return new static(function () use ($arrays) {
+            $seen = [];
+
+            foreach ($this->getIterator() as $k => $v) {
+                $seen[$k] = true;
+                yield $k => $v;
+            }
+
+            foreach ($arrays as $items) {
+                if ($items instanceof self || $items instanceof Collection) {
+                    $items = $items->all();
+                }
+                foreach ((array)$items as $k => $v) {
+                    yield $k => $v;
+                }
+            }
+        });
+    }
+
+    /**
+     * Get average value (terminal).
+     *
+     * @param callable|string|null $callback
+     * @return int|float|null
+     */
+    public function avg(callable|string|null $callback = null): int|float|null
+    {
+        $count = 0;
+        $total = 0;
+
+        $extract = $this->valueExtractor($callback);
+
+        foreach ($this->getIterator() as $v) {
+            $total += $extract($v);
+            $count++;
+        }
+
+        return $count === 0 ? null : $total / $count;
+    }
+
+    /**
+     * Get only specified keys (lazy).
+     *
+     * @param array $keys
+     * @return static
+     */
+    public function only(array $keys): static
+    {
+        $keySet = array_flip($keys);
+
+        return new static(function () use ($keySet) {
+            foreach ($this->getIterator() as $k => $v) {
+                if (isset($keySet[$k])) {
+                    yield $k => $v;
+                }
+            }
+        });
+    }
+
+    /**
+     * Get all except specified keys (lazy).
+     *
+     * @param array $keys
+     * @return static
+     */
+    public function except(array $keys): static
+    {
+        $keySet = array_flip($keys);
+
+        return new static(function () use ($keySet) {
+            foreach ($this->getIterator() as $k => $v) {
+                if (!isset($keySet[$k])) {
+                    yield $k => $v;
+                }
+            }
+        });
     }
 }

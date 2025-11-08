@@ -487,6 +487,214 @@ $response->header('X-Custom', 'value');
 - Prefer composition over inheritance
 - Program to interfaces, not implementations
 
+## Collections & Functional Programming
+
+The framework provides advanced Collection classes with rich functional operations:
+
+### Collection (Eager)
+
+Eager collection that loads all items into memory immediately. Ideal for small to medium datasets.
+
+```php
+use Toporia\Framework\Support\Collection;
+
+// Create collections
+$collection = Collection::make([1, 2, 3, 4, 5]);
+$collection = Collection::range(1, 100);
+$collection = Collection::times(5, fn($i) => $i * 2);
+
+// Map, filter, reduce
+$doubled = $collection->map(fn($n) => $n * 2);
+$evens = $collection->filter(fn($n) => $n % 2 === 0);
+$sum = $collection->reduce(fn($acc, $n) => $acc + $n, 0);
+
+// Chaining operations
+$result = Collection::make([1, 2, 3, 4, 5])
+    ->filter(fn($n) => $n > 2)
+    ->map(fn($n) => $n * 10)
+    ->sum(); // 120
+
+// Advanced operations
+$products = Collection::make($productsArray)
+    ->sortBy('price', descending: true)
+    ->groupBy('category')
+    ->map(fn($group) => $group->take(5));
+
+// Statistical functions
+$prices->avg('price');
+$prices->median('price');
+$prices->mode('color');
+$prices->sum('total');
+
+// Set operations
+$a->diff($b);          // Items in A but not in B
+$a->intersect($b);     // Items in both A and B
+$a->union($b);         // All unique items from A and B
+$a->diffBy($b, fn($x) => $x['id']);
+$a->intersectBy($b, fn($x) => $x['id']);
+
+// Sliding windows & advanced patterns
+$collection->window(3);     // [[1,2,3], [2,3,4], [3,4,5], ...]
+$collection->pairs();       // [[1,2], [2,3], [3,4], ...]
+$collection->transpose();   // Transpose 2D matrix
+$collection->crossJoin($other); // Cartesian product
+
+// Pagination
+$paginated = $collection->paginate(perPage: 10, page: 1);
+// Returns: ['data' => Collection, 'current_page' => 1, 'total' => 100, ...]
+```
+
+### LazyCollection (Memory-Efficient)
+
+Lazy collection using PHP Generators. Ideal for large datasets, streams, or infinite sequences.
+
+```php
+use Toporia\Framework\Support\LazyCollection;
+
+// Create lazy collections
+$lazy = LazyCollection::make(function () {
+    foreach (range(1, 1000000) as $i) {
+        yield $i;
+    }
+});
+
+$infinite = LazyCollection::infinite(fn($i) => $i * 2);
+$range = LazyCollection::range(1, 1000000);
+
+// All operations are lazy (deferred execution)
+$result = LazyCollection::range(1, 1000000)
+    ->filter(fn($n) => $n % 2 === 0)
+    ->map(fn($n) => $n * 2)
+    ->take(100)         // Only processes first 100 matching items
+    ->collect();        // Materialize to eager Collection
+
+// Process large files efficiently
+$lazy = LazyCollection::make(function () {
+    $handle = fopen('large-file.csv', 'r');
+    while ($row = fgetcsv($handle)) {
+        yield $row;
+    }
+    fclose($handle);
+});
+
+$results = $lazy
+    ->skip(1)              // Skip header
+    ->map(fn($row) => ['name' => $row[0], 'email' => $row[1]])
+    ->filter(fn($user) => str_contains($user['email'], '@gmail.com'))
+    ->chunk(1000)          // Process in chunks of 1000
+    ->each(fn($chunk) => $this->processBatch($chunk));
+
+// Cursor operations (take/skip variants)
+$lazy->take(10);           // First 10 items
+$lazy->takeWhile(fn($n) => $n < 100);
+$lazy->takeUntil(fn($n) => $n >= 100);
+$lazy->skip(100);          // Skip first 100
+$lazy->skipWhile(fn($n) => $n < 100);
+$lazy->skipUntil(fn($n) => $n >= 100);
+
+// Multi-pass safe (automatically caches on first pass)
+$lazy = LazyCollection::range(1, 100);
+foreach ($lazy as $item) { /* pass 1 */ }
+foreach ($lazy as $item) { /* pass 2 - works! */ }
+
+// Explicit caching for multiple iterations
+$cached = $lazy->remember();
+```
+
+### Shared Methods (Both Collections)
+
+Both `Collection` and `LazyCollection` implement `CollectionInterface`:
+
+```php
+// Transformations
+->map(callable $callback)
+->flatMap(callable $callback)
+->filter(callable $callback = null)
+->reject(callable $callback)
+->unique(string|callable|null $key = null)
+->flatten(int $depth = INF)
+->pluck(string|array $path)
+->keyBy(callable|string $key)
+
+// Aggregations (terminal operations)
+->reduce(callable $callback, mixed $initial = null)
+->sum(callable|string|null $callback = null)
+->avg(callable|string|null $callback = null)
+->min(callable|string|null $callback = null)
+->max(callable|string|null $callback = null)
+->count()
+
+// Predicates (terminal)
+->some(callable $callback)     // Any item matches
+->every(callable $callback)    // All items match
+->contains(mixed $key, ...)
+->isEmpty()
+->isNotEmpty()
+
+// Accessing items (terminal)
+->first(callable $callback = null, mixed $default = null)
+->all()                        // Materialize to array
+->collect()                    // To eager Collection
+->toJson(int $options = 0)
+
+// Slicing & limiting
+->take(int $limit)
+->skip(int $offset)
+->nth(int $step, int $offset = 0)
+->chunk(int $size)             // Yields Collection chunks
+
+// Combining
+->concat(mixed ...$iters)
+->zip(mixed ...$arrays)
+->merge(mixed ...$arrays)      // LazyCollection only
+
+// Utilities
+->tap(callable $callback)      // Side effects without changing collection
+->each(callable $callback)     // Terminal iteration
+->remember()                   // Cache results for multi-pass
+```
+
+### When to Use Which
+
+**Use Collection (Eager)** when:
+- Dataset fits comfortably in memory (< 10,000 items typically)
+- Need random access or multiple passes
+- Need sorting, grouping, or statistical operations
+- Working with in-memory data structures
+
+**Use LazyCollection** when:
+- Large datasets (millions of rows)
+- Streaming data (files, API responses, database cursors)
+- Memory-constrained environments
+- Infinite sequences
+- Only need to process once or sequentially
+
+### Performance Tips
+
+```php
+// ✅ Good: Lazy processing of large dataset
+LazyCollection::make($hugeDataset)
+    ->filter(fn($x) => $x > 100)
+    ->take(10)              // Stops after finding 10 items
+    ->collect();
+
+// ❌ Bad: Materializes entire dataset
+Collection::make($hugeDataset)
+    ->filter(fn($x) => $x > 100)  // Processes ALL items
+    ->take(10);
+
+// ✅ Good: Chunk processing for memory efficiency
+LazyCollection::make($millionRecords)
+    ->chunk(1000)
+    ->each(fn($chunk) => $this->processBatch($chunk->all()));
+
+// ✅ Good: Convert to lazy when memory is concern
+$collection->toLazy()
+    ->map(fn($item) => $this->heavyTransform($item))
+    ->filter(fn($item) => $item->isValid())
+    ->collect();
+```
+
 ## Database & ORM
 
 The framework includes a complete database abstraction layer with ORM, Query Builder, and Migrations.
