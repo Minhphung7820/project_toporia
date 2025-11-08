@@ -1,17 +1,49 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Providers;
 
-use Framework\Events\Dispatcher;
+use Framework\Container\ContainerInterface;
+use Framework\Events\EventDispatcherInterface;
+use Framework\Foundation\ServiceProvider;
 
-final class EventServiceProvider
+/**
+ * Application Event Service Provider
+ *
+ * Register event listeners and subscribers here.
+ */
+class EventServiceProvider extends ServiceProvider
 {
-    public static function register(Dispatcher $events): void
+    /**
+     * {@inheritdoc}
+     */
+    public function boot(ContainerInterface $container): void
     {
-        $events->listen('UserLoggedIn', function (array $payload) {
+        /** @var EventDispatcherInterface $events */
+        $events = $container->get(EventDispatcherInterface::class);
+
+        // Register event listeners
+        $this->registerListeners($events);
+    }
+
+    /**
+     * Register event listeners.
+     *
+     * @param EventDispatcherInterface $events
+     * @return void
+     */
+    protected function registerListeners(EventDispatcherInterface $events): void
+    {
+        // User events
+        $events->listen('UserLoggedIn', function ($event) {
+            $payload = $event->getPayload();
             error_log('[Login] ' . ($payload['email'] ?? 'unknown'));
         });
-        $events->listen('ProductCreated', function (array $payload) {
+
+        // Product events
+        $events->listen('ProductCreated', function ($event) {
+            $payload = $event->getPayload();
             error_log('[ProductCreated] ' . json_encode($payload));
         });
     }

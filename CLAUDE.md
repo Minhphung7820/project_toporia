@@ -101,11 +101,122 @@ The codebase follows Clean Architecture principles with strict layer separation:
    - **Middleware** - Implement `MiddlewareInterface` or extend `AbstractMiddleware`
    - **Views** - Plain PHP templates in `Views/` directory
 
+### Application Bootstrap
+
+The application uses a Service Provider pattern for organizing service registration:
+
+**File Structure:**
+- [bootstrap/app.php](bootstrap/app.php) - Application bootstrapping and provider registration
+- [bootstrap/helpers.php](bootstrap/helpers.php) - Global helper functions
+- [public/index.php](public/index.php) - Minimal front controller (entry point)
+- [config/](config/) - Configuration files loaded automatically
+
+**Bootstrap Flow:**
+1. [public/index.php](public/index.php) loads autoloader and requires [bootstrap/app.php](bootstrap/app.php)
+2. [bootstrap/app.php](bootstrap/app.php) creates `Application` instance and registers service providers
+3. Service providers register services into the container (register phase)
+4. All providers are booted (boot phase) - event listeners, routes, etc. are configured
+5. Router dispatches the HTTP request
+
 ### Key Patterns
+
+#### Service Provider Pattern
+
+Service Providers organize service registration logic into reusable, testable classes:
+
+```php
+use Framework\Foundation\ServiceProvider;
+use Framework\Container\ContainerInterface;
+
+class MyServiceProvider extends ServiceProvider
+{
+    /**
+     * Register services into the container.
+     * Only bind services here, don't resolve them yet.
+     */
+    public function register(ContainerInterface $container): void
+    {
+        $container->singleton(MyService::class, fn() => new MyService());
+    }
+
+    /**
+     * Bootstrap services after all providers are registered.
+     * Safe to resolve services from the container here.
+     */
+    public function boot(ContainerInterface $container): void
+    {
+        $service = $container->get(MyService::class);
+        $service->initialize();
+    }
+}
+```
+
+**Framework Service Providers:**
+- `Framework\Providers\ConfigServiceProvider` - Loads configuration files
+- `Framework\Providers\HttpServiceProvider` - Request/Response services
+- `Framework\Providers\EventServiceProvider` - Event dispatcher
+- `Framework\Providers\RoutingServiceProvider` - Router
+- `Framework\Providers\DatabaseServiceProvider` - Database connections and ORM
+
+**Application Service Providers:**
+- `App\Providers\AppServiceProvider` - Core application services (auth, etc.)
+- `App\Providers\RepositoryServiceProvider` - Repository bindings
+- `App\Providers\EventServiceProvider` - Event listeners
+- `App\Providers\RouteServiceProvider` - Routes loading
+
+**Registering Providers:**
+
+Edit [bootstrap/app.php](bootstrap/app.php):
+
+```php
+$app->registerProviders([
+    // Framework providers (order matters!)
+    \Framework\Providers\ConfigServiceProvider::class,
+    HttpServiceProvider::class,
+
+    // Your custom provider
+    MyServiceProvider::class,
+]);
+```
+
+**Best Practices:**
+- Use `register()` only for binding services (no resolution)
+- Use `boot()` for configuration that requires resolved services
+- Provider order matters: dependencies must be registered first
+- Keep providers focused on a single concern (SRP)
+
+#### Configuration System
+
+Configuration is centralized in [config/](config/) directory:
+
+```php
+// config/app.php
+return [
+    'name' => env('APP_NAME', 'My App'),
+    'env' => env('APP_ENV', 'local'),
+];
+
+// Access in code:
+$name = container('config')->get('app.name');
+$name = config('app.name'); // Using helper (when implemented)
+```
+
+**Available Configurations:**
+- [config/app.php](config/app.php) - Application settings
+- [config/database.php](config/database.php) - Database connections
+- [config/middleware.php](config/middleware.php) - Global middleware and aliases
+
+**Environment Variables:**
+
+Create `.env` file from `.env.example` and use `env()` helper:
+
+```php
+$dbHost = env('DB_HOST', 'localhost');
+```
 
 #### Dependency Injection and Auto-Wiring
 
-The Container in [public/index.php](public/index.php) provides advanced DI:
+The Container provides advanced DI with automatic resolution:
 
 ```php
 // Binding with factory
@@ -132,9 +243,12 @@ $container->call([Controller::class, 'method'], ['param' => 'value']);
 
 #### Routing with Fluent API
 
-Routes are defined in [routes/web.php](routes/web.php):
+Routes are automatically loaded by `RouteServiceProvider` from [routes/web.php](routes/web.php):
 
 ```php
+// The $router variable is injected automatically
+/** @var Router $router */
+
 // Basic routes
 $router->get('/products', [ProductsController::class, 'index']);
 $router->post('/products', [ProductsController::class, 'store']);
@@ -147,6 +261,10 @@ $router->get('/dashboard', [HomeController::class, 'dashboard'])
     ->name('dashboard')
     ->middleware([Authenticate::class, RoleCheck::class]);
 
+// Middleware can use short aliases from config/middleware.php
+$router->get('/admin', [AdminController::class, 'index'])
+    ->middleware(['auth', 'admin']); // 'auth' resolves to Authenticate::class
+
 // Multiple HTTP methods
 $router->any('/webhook', [WebhookController::class, 'handle']);
 
@@ -156,10 +274,27 @@ $router->post('/v2/products', CreateProductAction::class);
 
 **Features:**
 - RESTful verbs: `get()`, `post()`, `put()`, `patch()`, `delete()`, `any()`
-- Route parameters with regex compilation
+- Route parameters with regex compilation (`{id}`, `{slug}`, etc.)
 - Fluent middleware registration
 - Named routes for URL generation
 - Support for controller arrays and invokable classes
+- Automatic route loading via `RouteServiceProvider`
+
+**Middleware Configuration:**
+
+Global middleware and aliases are configured in [config/middleware.php](config/middleware.php):
+
+```php
+return [
+    'global' => [
+        // Middleware that run on every request
+    ],
+    'aliases' => [
+        'auth' => Authenticate::class,
+        'admin' => AdminMiddleware::class,
+    ],
+];
+```
 
 #### Event System
 

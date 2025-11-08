@@ -26,6 +26,11 @@ final class Router implements RouterInterface
     private RouteCollectionInterface $routes;
 
     /**
+     * @var array<string, string> Middleware aliases
+     */
+    private array $middlewareAliases = [];
+
+    /**
      * @param Request $request Current HTTP request.
      * @param Response $response HTTP response handler.
      * @param ContainerInterface $container Dependency injection container.
@@ -38,6 +43,29 @@ final class Router implements RouterInterface
         ?RouteCollectionInterface $routes = null
     ) {
         $this->routes = $routes ?? new RouteCollection();
+    }
+
+    /**
+     * Set middleware aliases for resolving short names.
+     *
+     * @param array<string, string> $aliases
+     * @return self
+     */
+    public function setMiddlewareAliases(array $aliases): self
+    {
+        $this->middlewareAliases = $aliases;
+        return $this;
+    }
+
+    /**
+     * Resolve middleware alias to class name.
+     *
+     * @param string $alias
+     * @return string
+     */
+    private function resolveMiddleware(string $alias): string
+    {
+        return $this->middlewareAliases[$alias] ?? $alias;
     }
 
     /**
@@ -193,7 +221,7 @@ final class Router implements RouterInterface
     /**
      * Build middleware pipeline around the core handler.
      *
-     * @param array<string> $middlewareClasses Middleware class names.
+     * @param array<string> $middlewareClasses Middleware class names or aliases.
      * @param callable $coreHandler Core route handler.
      * @return callable
      */
@@ -202,8 +230,11 @@ final class Router implements RouterInterface
         $pipeline = $coreHandler;
 
         // Build middleware chain in reverse order
-        foreach (array_reverse($middlewareClasses) as $middlewareClass) {
+        foreach (array_reverse($middlewareClasses) as $middlewareAlias) {
             $currentPipeline = $pipeline;
+
+            // Resolve alias to actual class name
+            $middlewareClass = $this->resolveMiddleware($middlewareAlias);
 
             $pipeline = function (Request $req, Response $res) use ($middlewareClass, $currentPipeline) {
                 $middleware = $this->container->get($middlewareClass);
