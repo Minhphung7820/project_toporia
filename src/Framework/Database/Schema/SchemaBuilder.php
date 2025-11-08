@@ -89,27 +89,27 @@ class SchemaBuilder
 
         // Add primary key
         if ($pk = $blueprint->getPrimaryKey()) {
-            $columns[] = "PRIMARY KEY ({$pk})";
+            $columns[] = "PRIMARY KEY (" . $this->quoteIdentifier($pk, $driver) . ")";
         }
 
         // Add indexes
         foreach ($blueprint->getIndexes() as $index) {
             if ($index['type'] === 'unique') {
-                $cols = implode(', ', $index['columns']);
+                $cols = implode(', ', array_map(fn($col) => $this->quoteIdentifier($col, $driver), $index['columns']));
                 $columns[] = "UNIQUE ({$cols})";
             } elseif ($index['type'] === 'foreign') {
                 $columns[] = sprintf(
                     'FOREIGN KEY (%s) REFERENCES %s(%s)',
-                    $index['column'],
-                    $index['on'],
-                    $index['references']
+                    $this->quoteIdentifier($index['column'], $driver),
+                    $this->quoteIdentifier($index['on'], $driver),
+                    $this->quoteIdentifier($index['references'], $driver)
                 );
             }
         }
 
         $columnsSql = implode(', ', $columns);
 
-        return "CREATE TABLE {$blueprint->getTable()} ({$columnsSql})";
+        return "CREATE TABLE " . $this->quoteIdentifier($blueprint->getTable(), $driver) . " ({$columnsSql})";
     }
 
     /**
@@ -121,7 +121,7 @@ class SchemaBuilder
      */
     private function compileColumn(array $column, string $driver): string
     {
-        $sql = $column['name'] . ' ';
+        $sql = $this->quoteIdentifier($column['name'], $driver) . ' ';
 
         $sql .= $this->getColumnType($column, $driver);
 
@@ -217,5 +217,22 @@ class SchemaBuilder
         }
 
         return "'" . addslashes((string) $value) . "'";
+    }
+
+    /**
+     * Quote identifier (table/column name) based on driver.
+     *
+     * @param string $identifier Identifier to quote.
+     * @param string $driver Database driver.
+     * @return string Quoted identifier.
+     */
+    private function quoteIdentifier(string $identifier, string $driver): string
+    {
+        return match ($driver) {
+            'mysql' => "`{$identifier}`",
+            'pgsql' => "\"{$identifier}\"",
+            'sqlite' => "`{$identifier}`",
+            default => $identifier
+        };
     }
 }

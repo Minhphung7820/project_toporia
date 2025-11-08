@@ -38,6 +38,46 @@ $app = new Application(
 
 /*
 |--------------------------------------------------------------------------
+| Load Environment Variables
+|--------------------------------------------------------------------------
+|
+| Load environment variables from .env file into $_ENV.
+| This must be done before loading helpers and providers.
+|
+*/
+
+$envFile = dirname(__DIR__) . '/.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) {
+            continue; // Skip comments
+        }
+        if (strpos($line, '=') !== false) {
+            [$key, $value] = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+
+            // Remove quotes if present
+            if (preg_match('/^"(.*)"$/', $value, $matches)) {
+                $value = $matches[1];
+            } elseif (preg_match("/^'(.*)'$/", $value, $matches)) {
+                $value = $matches[1];
+            }
+
+            // Expand variables like ${VAR}
+            $value = preg_replace_callback('/\$\{([A-Z_]+)\}/', function($m) {
+                return $_ENV[$m[1]] ?? '';
+            }, $value);
+
+            $_ENV[$key] = $value;
+            putenv("{$key}={$value}");
+        }
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
 | Load Helper Functions Early
 |--------------------------------------------------------------------------
 |

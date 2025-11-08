@@ -276,6 +276,19 @@ class Blueprint
     }
 
     /**
+     * Set primary key.
+     *
+     * @param string $column Primary key column name.
+     * @return self
+     */
+    public function primaryKey(string $column): self
+    {
+        $this->primaryKey = $column;
+
+        return $this;
+    }
+
+    /**
      * Get table name.
      *
      * @return string
