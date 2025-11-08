@@ -9,13 +9,13 @@ declare(strict_types=1);
  * It registers all service providers needed by the framework and application.
  */
 
-use Framework\Foundation\Application;
+use Toporia\Framework\Foundation\Application;
 
 // Framework Service Providers
-use Framework\Providers\HttpServiceProvider;
-use Framework\Providers\EventServiceProvider;
-use Framework\Providers\RoutingServiceProvider;
-use Framework\Providers\DatabaseServiceProvider;
+use Toporia\Framework\Providers\HttpServiceProvider;
+use Toporia\Framework\Providers\EventServiceProvider;
+use Toporia\Framework\Providers\RoutingServiceProvider;
+use Toporia\Framework\Providers\DatabaseServiceProvider;
 
 // Application Service Providers
 use App\Providers\AppServiceProvider;
@@ -63,7 +63,7 @@ require __DIR__ . '/helpers.php';
 
 $app->registerProviders([
     // Framework core providers (order matters!)
-    \Framework\Providers\ConfigServiceProvider::class,
+    \Toporia\Framework\Providers\ConfigServiceProvider::class,
     HttpServiceProvider::class,
     EventServiceProvider::class,
     RoutingServiceProvider::class,

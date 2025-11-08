@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use Framework\Container\ContainerInterface;
-use Framework\Events\EventDispatcherInterface;
-use Framework\Foundation\ServiceProvider;
+use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Events\EventDispatcherInterface;
+use Toporia\Framework\Foundation\ServiceProvider;
 
 /**
  * Application Event Service Provider

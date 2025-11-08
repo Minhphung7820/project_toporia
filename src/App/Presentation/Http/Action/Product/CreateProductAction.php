@@ -2,10 +2,10 @@
 
 namespace App\Presentation\Http\Action\Product;
 
-use Framework\Presentation\Action\AbstractAction;
-use Framework\Presentation\Responder\AbstractResponder;
-use Framework\Http\Request;
-use Framework\Http\Response;
+use Toporia\Framework\Presentation\Action\AbstractAction;
+use Toporia\Framework\Presentation\Responder\AbstractResponder;
+use Toporia\Framework\Http\Request;
+use Toporia\Framework\Http\Response;
 use App\Application\Product\CreateProduct\CreateProductCommand;
 use App\Application\Product\CreateProduct\CreateProductHandler;
 use App\Infrastructure\Persistence\InMemoryProductRepository;

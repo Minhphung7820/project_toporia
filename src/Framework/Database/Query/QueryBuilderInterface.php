@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database\Query;
+namespace Toporia\Framework\Database\Query;
 
 /**
  * Query Builder interface.

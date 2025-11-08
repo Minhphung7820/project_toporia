@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use Framework\Container\ContainerInterface;
-use Framework\Foundation\ServiceProvider;
+use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Foundation\ServiceProvider;
 use App\Infrastructure\Auth\SessionAuth;
 
 /**

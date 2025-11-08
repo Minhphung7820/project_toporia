@@ -2,8 +2,8 @@
 
 namespace App\Presentation\Http\Controllers;
 
-use Framework\Support\Result;
-use Framework\Support\Str;
+use Toporia\Framework\Support\Result;
+use Toporia\Framework\Support\Str;
 
 final class HomeController extends BaseController
 {

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Framework\Providers;
+namespace Toporia\Framework\Providers;
 
-use Framework\Container\ContainerInterface;
-use Framework\Foundation\ServiceProvider;
-use Framework\Http\Request;
-use Framework\Http\RequestInterface;
-use Framework\Http\Response;
-use Framework\Http\ResponseInterface;
+use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Foundation\ServiceProvider;
+use Toporia\Framework\Http\Request;
+use Toporia\Framework\Http\RequestInterface;
+use Toporia\Framework\Http\Response;
+use Toporia\Framework\Http\ResponseInterface;
 
 /**
  * HTTP Service Provider

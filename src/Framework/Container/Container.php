@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Framework\Container;
+namespace Toporia\Framework\Container;
 
-use Framework\Container\Exception\ContainerException;
-use Framework\Container\Exception\NotFoundException;
+use Toporia\Framework\Container\Exception\ContainerException;
+use Toporia\Framework\Container\Exception\NotFoundException;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionFunction;

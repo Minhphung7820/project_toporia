@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Framework\Providers;
+namespace Toporia\Framework\Providers;
 
-use Framework\Container\ContainerInterface;
-use Framework\Database\Connection;
-use Framework\Database\ConnectionInterface;
-use Framework\Database\DatabaseManager;
-use Framework\Database\ORM\Model;
-use Framework\Foundation\ServiceProvider;
+use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Database\Connection;
+use Toporia\Framework\Database\ConnectionInterface;
+use Toporia\Framework\Database\DatabaseManager;
+use Toporia\Framework\Database\ORM\Model;
+use Toporia\Framework\Foundation\ServiceProvider;
 
 /**
  * Database Service Provider

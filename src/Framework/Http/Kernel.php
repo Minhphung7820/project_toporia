@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Framework\Http;
+namespace Toporia\Framework\Http;
 
-use Framework\Container\ContainerInterface;
-use Framework\Routing\RouterInterface;
+use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Routing\RouterInterface;
 
 /**
  * HTTP Kernel

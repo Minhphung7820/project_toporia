@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Framework\Foundation;
+namespace Toporia\Framework\Foundation;
 
-use Framework\Container\ContainerInterface;
+use Toporia\Framework\Container\ContainerInterface;
 
 /**
  * Service Provider Interface

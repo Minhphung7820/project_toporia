@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Framework\Routing;
+namespace Toporia\Framework\Routing;
 
-use Framework\Container\ContainerInterface;
-use Framework\Http\Request;
-use Framework\Http\Response;
+use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Http\Request;
+use Toporia\Framework\Http\Response;
 
 /**
  * HTTP Router with middleware support and dependency injection.

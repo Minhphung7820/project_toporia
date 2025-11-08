@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Framework\Presentation\Action;
+namespace Toporia\Framework\Presentation\Action;
 
-use Framework\Http\Request;
-use Framework\Http\Response;
+use Toporia\Framework\Http\Request;
+use Toporia\Framework\Http\Response;
 
 /**
  * Base Action for ADR (Action-Domain-Responder) pattern.

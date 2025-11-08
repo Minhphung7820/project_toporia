@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database\ORM;
+namespace Toporia\Framework\Database\ORM;
 
-use Framework\Support\Collection;
+use Toporia\Framework\Support\Collection;
 
 /**
  * Typed collection for Model instances.

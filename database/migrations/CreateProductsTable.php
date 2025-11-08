@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Framework\Database\Migration\Migration;
+use Toporia\Framework\Database\Migration\Migration;
 
 /**
  * Create products table migration.

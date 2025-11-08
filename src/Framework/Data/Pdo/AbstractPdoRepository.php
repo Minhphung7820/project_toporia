@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Framework\Data\Pdo;
+namespace Toporia\Framework\Data\Pdo;
 
-use Framework\Data\AbstractRepository;
-use Framework\Data\RepositoryInterface;
-use Framework\Database\ConnectionInterface;
-use Framework\Database\Query\QueryBuilder;
+use Toporia\Framework\Data\AbstractRepository;
+use Toporia\Framework\Data\RepositoryInterface;
+use Toporia\Framework\Database\ConnectionInterface;
+use Toporia\Framework\Database\Query\QueryBuilder;
 
 /**
  * Base PDO Repository with database-specific functionality.

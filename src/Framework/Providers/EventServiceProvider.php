@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Framework\Providers;
+namespace Toporia\Framework\Providers;
 
-use Framework\Container\ContainerInterface;
-use Framework\Events\Dispatcher;
-use Framework\Events\EventDispatcherInterface;
-use Framework\Foundation\ServiceProvider;
+use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Events\Dispatcher;
+use Toporia\Framework\Events\EventDispatcherInterface;
+use Toporia\Framework\Foundation\ServiceProvider;
 
 /**
  * Event Service Provider

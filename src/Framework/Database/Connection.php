@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database;
+namespace Toporia\Framework\Database;
 
 use PDO;
 use PDOException;
-use Framework\Database\Exception\ConnectionException;
-use Framework\Database\Exception\QueryException;
+use Toporia\Framework\Database\Exception\ConnectionException;
+use Toporia\Framework\Database\Exception\QueryException;
 
 /**
  * Database connection implementation.

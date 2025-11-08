@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\Product;
 
-use Framework\Database\ORM\Model;
+use Toporia\Framework\Database\ORM\Model;
 
 /**
  * Product ORM Model.

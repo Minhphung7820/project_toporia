@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database\Schema;
+namespace Toporia\Framework\Database\Schema;
 
 /**
  * Column definition helper.

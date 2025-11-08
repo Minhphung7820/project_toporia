@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Framework\Providers;
+namespace Toporia\Framework\Providers;
 
-use Framework\Container\ContainerInterface;
-use Framework\Foundation\ServiceProvider;
-use Framework\Http\Request;
-use Framework\Http\Response;
-use Framework\Routing\Router;
-use Framework\Routing\RouterInterface;
+use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Foundation\ServiceProvider;
+use Toporia\Framework\Http\Request;
+use Toporia\Framework\Http\Response;
+use Toporia\Framework\Routing\Router;
+use Toporia\Framework\Routing\RouterInterface;
 
 /**
  * Routing Service Provider

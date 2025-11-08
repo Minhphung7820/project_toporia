@@ -9,7 +9,7 @@ declare(strict_types=1);
  * The $router variable is automatically injected by RouteServiceProvider.
  */
 
-use Framework\Routing\Router;
+use Toporia\Framework\Routing\Router;
 use App\Presentation\Http\Middleware\Authenticate;
 use App\Presentation\Http\Controllers\HomeController;
 use App\Presentation\Http\Controllers\AuthController;

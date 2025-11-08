@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Support;
+namespace Toporia\Framework\Support;
 
 use Countable;
 use IteratorAggregate;

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database\Migration;
+namespace Toporia\Framework\Database\Migration;
 
-use Framework\Database\Schema\SchemaBuilder;
+use Toporia\Framework\Database\Schema\SchemaBuilder;
 
 /**
  * Base Migration class.

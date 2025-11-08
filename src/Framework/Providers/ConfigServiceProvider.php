@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Framework\Providers;
+namespace Toporia\Framework\Providers;
 
-use Framework\Config\Repository;
-use Framework\Container\ContainerInterface;
-use Framework\Foundation\Application;
-use Framework\Foundation\ServiceProvider;
+use Toporia\Framework\Config\Repository;
+use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Foundation\Application;
+use Toporia\Framework\Foundation\ServiceProvider;
 
 /**
  * Configuration Service Provider

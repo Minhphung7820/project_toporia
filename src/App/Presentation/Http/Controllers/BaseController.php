@@ -1,8 +1,8 @@
 <?php
 namespace App\Presentation\Http\Controllers;
 
-use Framework\Http\Request;
-use Framework\Http\Response;
+use Toporia\Framework\Http\Request;
+use Toporia\Framework\Http\Response;
 
 abstract class BaseController
 {

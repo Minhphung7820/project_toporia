@@ -1,5 +1,5 @@
 <?php
-namespace Framework\Application\UseCase;
+namespace Toporia\Framework\Application\UseCase;
 
 abstract class AbstractHandler
 {

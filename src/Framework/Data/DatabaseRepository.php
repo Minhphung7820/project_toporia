@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Framework\Data;
+namespace Toporia\Framework\Data;
 
-use Framework\Database\ConnectionInterface;
-use Framework\Database\Query\QueryBuilder;
+use Toporia\Framework\Database\ConnectionInterface;
+use Toporia\Framework\Database\Query\QueryBuilder;
 
 /**
  * Base Database Repository.

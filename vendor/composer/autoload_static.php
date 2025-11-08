@@ -11,9 +11,9 @@ class ComposerStaticInitcf6b1ac2e2deebf5f097dbc7e3118934
     );
 
     public static $prefixLengthsPsr4 = array (
-        'F' => 
+        'T' => 
         array (
-            'Framework\\' => 10,
+            'Toporia\\Framework\\' => 18,
         ),
         'A' => 
         array (
@@ -22,7 +22,7 @@ class ComposerStaticInitcf6b1ac2e2deebf5f097dbc7e3118934
     );
 
     public static $prefixDirsPsr4 = array (
-        'Framework\\' => 
+        'Toporia\\Framework\\' => 
         array (
             0 => __DIR__ . '/../..' . '/src/Framework',
         ),

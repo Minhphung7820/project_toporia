@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database\ORM;
+namespace Toporia\Framework\Database\ORM;
 
-use Framework\Database\ConnectionInterface;
-use Framework\Database\Query\QueryBuilder;
-use Framework\Database\ORM\ModelCollection;
-use Framework\Database\Query\RowCollection;
+use Toporia\Framework\Database\ConnectionInterface;
+use Toporia\Framework\Database\Query\QueryBuilder;
+use Toporia\Framework\Database\ORM\ModelCollection;
+use Toporia\Framework\Database\Query\RowCollection;
 
 /**
  * Base Active Record model.

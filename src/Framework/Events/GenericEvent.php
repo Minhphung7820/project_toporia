@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Events;
+namespace Toporia\Framework\Events;
 
 /**
  * Generic event with payload data.

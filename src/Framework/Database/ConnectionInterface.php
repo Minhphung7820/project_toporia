@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database;
+namespace Toporia\Framework\Database;
 
 use PDO;
 

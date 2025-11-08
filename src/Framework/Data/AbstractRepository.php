@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Data;
+namespace Toporia\Framework\Data;
 
 /**
  * Base Repository class with common utilities.

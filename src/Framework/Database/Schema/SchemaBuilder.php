@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database\Schema;
+namespace Toporia\Framework\Database\Schema;
 
-use Framework\Database\ConnectionInterface;
+use Toporia\Framework\Database\ConnectionInterface;
 
 /**
  * Schema Builder for creating/modifying database tables.

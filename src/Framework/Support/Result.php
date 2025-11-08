@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Support;
+namespace Toporia\Framework\Support;
 
 /**
  * Result type for functional error handling.

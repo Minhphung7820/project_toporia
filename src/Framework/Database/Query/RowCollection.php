@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database\Query;
+namespace Toporia\Framework\Database\Query;
 
-use Framework\Support\Collection;
+use Toporia\Framework\Support\Collection;
 
 /**
  * Typed collection representing raw database rows.

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use Framework\Container\ContainerInterface;
-use Framework\Foundation\ServiceProvider;
-use Framework\Foundation\Application;
-use Framework\Routing\Router;
+use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Foundation\ServiceProvider;
+use Toporia\Framework\Foundation\Application;
+use Toporia\Framework\Routing\Router;
 
 /**
  * Route Service Provider

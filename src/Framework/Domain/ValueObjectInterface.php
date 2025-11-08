@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Domain;
+namespace Toporia\Framework\Domain;
 
 /**
  * Value Object interface.

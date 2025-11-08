@@ -28,7 +28,7 @@ The codebase follows Clean Architecture principles with strict layer separation:
 
 1. **Framework Layer** (`src/Framework/`) - Professional mini-framework with SOLID design:
 
-   **Container** (`Framework\Container\`)
+   **Container** (`Toporia\Framework\Container\`)
    - Interface-based dependency injection container (PSR-11 inspired)
    - Auto-wiring support for automatic dependency resolution
    - Constructor injection with type-hint resolution
@@ -37,7 +37,7 @@ The codebase follows Clean Architecture principles with strict layer separation:
    - Circular dependency detection
    - Key interfaces: `ContainerInterface`
 
-   **Routing** (`Framework\Routing\`)
+   **Routing** (`Toporia\Framework\Routing\`)
    - Fully OOP router with route objects and collections
    - Interfaces: `RouterInterface`, `RouteInterface`, `RouteCollectionInterface`
    - Route parameter extraction (`{id}` syntax) with regex compilation
@@ -45,14 +45,14 @@ The codebase follows Clean Architecture principles with strict layer separation:
    - Fluent middleware registration
    - RESTful route methods: `get()`, `post()`, `put()`, `patch()`, `delete()`, `any()`
 
-   **HTTP** (`Framework\Http\`)
+   **HTTP** (`Toporia\Framework\Http\`)
    - Request/Response abstraction with full interfaces
    - Interfaces: `RequestInterface`, `ResponseInterface`
    - Request features: header extraction, AJAX detection, JSON expectation
    - Response features: HTML, JSON, redirects, file downloads
    - Helper methods: `only()`, `except()`, `has()`, `all()` on Request
 
-   **Events** (`Framework\Events\`)
+   **Events** (`Toporia\Framework\Events\`)
    - Event-driven architecture with proper abstractions
    - Interfaces: `EventDispatcherInterface`, `EventInterface`
    - Priority-based listener execution
@@ -61,7 +61,7 @@ The codebase follows Clean Architecture principles with strict layer separation:
    - Generic event class for simple use cases
    - Event subscriber pattern with `subscribe()`
 
-   **Middleware** (`Framework\Http\Middleware\`)
+   **Middleware** (`Toporia\Framework\Http\Middleware\`)
    - Interface: `MiddlewareInterface`
    - Pipeline pattern implementation
    - Before/after hooks in `AbstractMiddleware`
@@ -125,8 +125,8 @@ The application uses a Service Provider pattern for organizing service registrat
 Service Providers organize service registration logic into reusable, testable classes:
 
 ```php
-use Framework\Foundation\ServiceProvider;
-use Framework\Container\ContainerInterface;
+use Toporia\Framework\Foundation\ServiceProvider;
+use Toporia\Framework\Container\ContainerInterface;
 
 class MyServiceProvider extends ServiceProvider
 {
@@ -152,11 +152,11 @@ class MyServiceProvider extends ServiceProvider
 ```
 
 **Framework Service Providers:**
-- `Framework\Providers\ConfigServiceProvider` - Loads configuration files
-- `Framework\Providers\HttpServiceProvider` - Request/Response services
-- `Framework\Providers\EventServiceProvider` - Event dispatcher
-- `Framework\Providers\RoutingServiceProvider` - Router
-- `Framework\Providers\DatabaseServiceProvider` - Database connections and ORM
+- `Toporia\Framework\Providers\ConfigServiceProvider` - Loads configuration files
+- `Toporia\Framework\Providers\HttpServiceProvider` - Request/Response services
+- `Toporia\Framework\Providers\EventServiceProvider` - Event dispatcher
+- `Toporia\Framework\Providers\RoutingServiceProvider` - Router
+- `Toporia\Framework\Providers\DatabaseServiceProvider` - Database connections and ORM
 
 **Application Service Providers:**
 - `App\Providers\AppServiceProvider` - Core application services (auth, etc.)
@@ -171,7 +171,7 @@ Edit [bootstrap/app.php](bootstrap/app.php):
 ```php
 $app->registerProviders([
     // Framework providers (order matters!)
-    \Framework\Providers\ConfigServiceProvider::class,
+    \Toporia\Framework\Providers\ConfigServiceProvider::class,
     HttpServiceProvider::class,
 
     // Your custom provider
@@ -434,7 +434,7 @@ $product = $handler(new CreateProductCommand('New Product'));
 
 #### Result Type
 
-Framework provides a Result monad in `Framework\Support\Result` for error handling:
+Framework provides a Result monad in `Toporia\Framework\Support\Result` for error handling:
 ```php
 $result = Result::ok($value);
 $result = Result::err(new Exception('Failed'));
@@ -495,8 +495,8 @@ The framework includes a complete database abstraction layer with ORM, Query Bui
 
 **Configuration:**
 ```php
-use Framework\Database\Connection;
-use Framework\Database\DatabaseManager;
+use Toporia\Framework\Database\Connection;
+use Toporia\Framework\Database\DatabaseManager;
 
 // Single connection
 $connection = new Connection([
@@ -536,7 +536,7 @@ $analyticsConn = $db->connection('analytics');
 Fluent interface for building SQL queries with automatic parameter binding:
 
 ```php
-use Framework\Database\Query\QueryBuilder;
+use Toporia\Framework\Database\Query\QueryBuilder;
 
 $builder = new QueryBuilder($connection);
 
@@ -601,7 +601,7 @@ $bindings = $builder->getBindings();
 
 **Defining Models:**
 ```php
-use Framework\Database\ORM\Model;
+use Toporia\Framework\Database\ORM\Model;
 
 class ProductModel extends Model
 {
@@ -761,7 +761,7 @@ if ($product->inStock()) {
 
 **Creating Migrations:**
 ```php
-use Framework\Database\Migration\Migration;
+use Toporia\Framework\Database\Migration\Migration;
 
 class CreateProductsTable extends Migration
 {
@@ -792,7 +792,7 @@ class CreateProductsTable extends Migration
 
 **Running Migrations:**
 ```php
-use Framework\Database\Schema\SchemaBuilder;
+use Toporia\Framework\Database\Schema\SchemaBuilder;
 
 $schema = new SchemaBuilder($connection);
 
@@ -833,7 +833,7 @@ $table->foreign('user_id', 'id', 'users'); // Foreign key
 For repositories that need database access:
 
 ```php
-use Framework\Data\DatabaseRepository;
+use Toporia\Framework\Data\DatabaseRepository;
 use App\Domain\Product\ProductRepository;
 
 class PdoProductRepository extends DatabaseRepository implements ProductRepository
@@ -912,8 +912,8 @@ class PdoProductRepository extends DatabaseRepository implements ProductReposito
 Register database services in [public/index.php](public/index.php):
 
 ```php
-use Framework\Database\DatabaseManager;
-use Framework\Database\ORM\Model;
+use Toporia\Framework\Database\DatabaseManager;
+use Toporia\Framework\Database\ORM\Model;
 
 // Register DatabaseManager
 $container->singleton(DatabaseManager::class, fn() => new DatabaseManager([

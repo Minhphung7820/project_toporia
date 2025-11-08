@@ -1,5 +1,5 @@
 <?php
-namespace Framework\Http\Problem;
+namespace Toporia\Framework\Http\Problem;
 
 use Exception;
 

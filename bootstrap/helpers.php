@@ -8,7 +8,7 @@ declare(strict_types=1);
  * Global helper functions for convenient access to application services.
  */
 
-use Framework\Foundation\Application;
+use Toporia\Framework\Foundation\Application;
 
 if (!function_exists('app')) {
     /**
@@ -34,11 +34,11 @@ if (!function_exists('event')) {
     /**
      * Dispatch an event.
      *
-     * @param string|\Framework\Events\EventInterface $event Event name or object.
+     * @param string|\Toporia\Framework\Events\EventInterface $event Event name or object.
      * @param array $payload Event payload data.
-     * @return \Framework\Events\EventInterface
+     * @return \Toporia\Framework\Events\EventInterface
      */
-    function event(string|\Framework\Events\EventInterface $event, array $payload = []): \Framework\Events\EventInterface
+    function event(string|\Toporia\Framework\Events\EventInterface $event, array $payload = []): \Toporia\Framework\Events\EventInterface
     {
         return app('events')->dispatch($event, $payload);
     }

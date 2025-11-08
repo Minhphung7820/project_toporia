@@ -33,7 +33,7 @@ require __DIR__ . '/../vendor/autoload.php';
 |
 */
 
-/** @var \Framework\Foundation\Application $app */
+/** @var \Toporia\Framework\Foundation\Application $app */
 $app = require __DIR__ . '/../bootstrap/app.php';
 
 /*
@@ -53,4 +53,4 @@ require __DIR__ . '/../bootstrap/helpers.php';
 |
 */
 
-$app->make(\Framework\Routing\Router::class)->dispatch();
+$app->make(\Toporia\Framework\Routing\Router::class)->dispatch();

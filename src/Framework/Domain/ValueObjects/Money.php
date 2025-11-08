@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Framework\Domain\ValueObjects;
+namespace Toporia\Framework\Domain\ValueObjects;
 
-use Framework\Domain\ValueObject;
+use Toporia\Framework\Domain\ValueObject;
 
 /**
  * Money Value Object.

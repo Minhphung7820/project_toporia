@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Framework\Presentation\Responder;
+namespace Toporia\Framework\Presentation\Responder;
 
-use Framework\Http\Response;
+use Toporia\Framework\Http\Response;
 
 /**
  * Base Responder for ADR pattern.

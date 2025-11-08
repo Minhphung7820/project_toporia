@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database;
+namespace Toporia\Framework\Database;
 
-use Framework\Database\Schema\SchemaBuilder;
+use Toporia\Framework\Database\Schema\SchemaBuilder;
 
 /**
  * Database Manager.

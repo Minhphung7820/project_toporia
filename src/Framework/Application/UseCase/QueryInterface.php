@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Application\UseCase;
+namespace Toporia\Framework\Application\UseCase;
 
 /**
  * Query interface (CQRS pattern).

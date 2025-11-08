@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Config;
+namespace Toporia\Framework\Config;
 
 /**
  * Configuration Repository

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Container\Exception;
+namespace Toporia\Framework\Container\Exception;
 
 use RuntimeException;
 

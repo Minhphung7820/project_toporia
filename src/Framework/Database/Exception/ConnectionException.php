@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database\Exception;
+namespace Toporia\Framework\Database\Exception;
 
 use RuntimeException;
 

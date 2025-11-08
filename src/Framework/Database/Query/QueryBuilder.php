@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Framework\Database\Query;
+namespace Toporia\Framework\Database\Query;
 
-use Framework\Database\ConnectionInterface;
-use Framework\Database\Query\RowCollection;
+use Toporia\Framework\Database\ConnectionInterface;
+use Toporia\Framework\Database\Query\RowCollection;
 
 /**
  * SQL Query Builder with a fluent interface.
