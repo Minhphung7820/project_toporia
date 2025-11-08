@@ -337,39 +337,169 @@ $dispatcher->subscribe([
 
 #### Middleware Pipeline
 
-Middleware execute in order around your handler:
+**Architecture**: The middleware system follows Clean Architecture and SOLID principles with clear separation of concerns:
 
+1. **MiddlewareInterface** - Contract for all middleware (Interface Segregation Principle)
+2. **AbstractMiddleware** - Base class with automatic before/after hooks (Open/Closed Principle)
+3. **MiddlewarePipeline** - Dedicated class for building middleware chains (Single Responsibility Principle)
+4. **Router** - Delegates middleware execution to MiddlewarePipeline (Dependency Inversion Principle)
+
+**Creating Middleware** - Three approaches:
+
+**Option 1: Implement MiddlewareInterface** (Best for simple middleware)
 ```php
-// In routes
-$router->get('/admin', [AdminController::class, 'index'])
-    ->middleware([Authenticate::class, AdminOnly::class]);
+use Toporia\Framework\Http\Middleware\MiddlewareInterface;
 
-// Creating middleware
-class Authenticate implements MiddlewareInterface {
-    public function handle(Request $request, Response $response, callable $next): mixed {
+final class Authenticate implements MiddlewareInterface
+{
+    public function handle(Request $request, Response $response, callable $next): mixed
+    {
         if (!auth()->check()) {
-            $response->redirect('/login');
-            return;
+            $response->setStatus(401);
+            $response->html('<h1>401 Unauthorized</h1>');
+            return null; // Short-circuit - don't call $next
+        }
+
+        return $next($request, $response); // Continue to next middleware
+    }
+}
+```
+
+**Option 2: Extend AbstractMiddleware with process()** (Best for validation/checks)
+```php
+use Toporia\Framework\Http\Middleware\AbstractMiddleware;
+
+final class ValidateJsonRequest extends AbstractMiddleware
+{
+    protected function process(Request $request, Response $response): mixed
+    {
+        // Return null to continue, return Response to short-circuit
+        if (!$request->expectsJson()) {
+            return null; // Continue
+        }
+
+        // Validate JSON
+        $raw = $request->raw();
+        json_decode($raw);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $response->json(['error' => 'Invalid JSON'], 400);
+            return null; // Short-circuit
+        }
+
+        return null; // Continue
+    }
+}
+```
+
+**Option 3: Extend AbstractMiddleware with hooks** (Best for logging/metrics)
+```php
+use Toporia\Framework\Http\Middleware\AbstractMiddleware;
+
+final class LogRequest extends AbstractMiddleware
+{
+    private float $startTime;
+
+    protected function before(Request $request, Response $response): void
+    {
+        $this->startTime = microtime(true);
+        error_log("[REQUEST] {$request->method()} {$request->path()}");
+    }
+
+    protected function after(Request $request, Response $response, mixed $result): void
+    {
+        $duration = round((microtime(true) - $this->startTime) * 1000, 2);
+        error_log("[RESPONSE] Status: {$response->getStatus()} | Duration: {$duration}ms");
+    }
+}
+```
+
+**Using Middleware in Routes:**
+```php
+// Single middleware
+$router->get('/admin', [AdminController::class, 'index'])
+    ->middleware(['auth']);
+
+// Multiple middleware (executed in order)
+$router->post('/api/data', [ApiController::class, 'store'])
+    ->middleware(['json', 'auth', 'log']);
+
+// Using full class names
+$router->get('/dashboard', [HomeController::class, 'dashboard'])
+    ->middleware([Authenticate::class, LogRequest::class]);
+```
+
+**Middleware Aliases** in [config/middleware.php](config/middleware.php):
+```php
+return [
+    'aliases' => [
+        'auth' => Authenticate::class,
+        'log' => LogRequest::class,
+        'json' => ValidateJsonRequest::class,
+        'security' => AddSecurityHeaders::class,
+    ],
+];
+```
+
+**Global Middleware** (runs on every request):
+```php
+// In config/middleware.php
+'global' => [
+    AddSecurityHeaders::class,
+    LogRequest::class,
+],
+```
+
+**How AbstractMiddleware Works:**
+
+When you extend `AbstractMiddleware`, the `handle()` method is automatically implemented with this flow:
+
+1. Call `before()` hook (if overridden)
+2. Call `process()` (if overridden)
+   - If `process()` returns non-null: short-circuit, skip next middleware
+   - If `process()` returns null: continue to step 3
+3. Call `$next()` to continue pipeline
+4. Call `after()` hook (if overridden) with result
+5. Return result
+
+This pattern allows you to:
+- Override just `before()` for pre-processing (logging, context setup)
+- Override just `after()` for post-processing (headers, metrics)
+- Override `process()` for validation with optional short-circuit
+- Override any combination of the above
+
+**Dependency Injection in Middleware:**
+```php
+final class RateLimiter implements MiddlewareInterface
+{
+    public function __construct(
+        private CacheInterface $cache,
+        private ConfigInterface $config
+    ) {} // Dependencies auto-wired from container!
+
+    public function handle(Request $request, Response $response, callable $next): mixed
+    {
+        $key = "rate_limit:{$request->ip()}";
+        $limit = $this->config->get('rate_limit.max_requests', 60);
+
+        if ($this->cache->increment($key) > $limit) {
+            $response->json(['error' => 'Too many requests'], 429);
+            return null;
         }
 
         return $next($request, $response);
     }
 }
-
-// Using AbstractMiddleware with hooks
-class LogRequest extends AbstractMiddleware {
-    public function handle(Request $request, Response $response, callable $next): mixed {
-        $this->before($request, $response);
-        $result = $next($request, $response);
-        $this->after($request, $response, $result);
-        return $result;
-    }
-
-    protected function before(Request $request, Response $response): void {
-        // Log before request
-    }
-}
 ```
+
+**Best Practices:**
+- Use `MiddlewareInterface` for simple validation/authentication
+- Use `AbstractMiddleware` when you need before/after hooks
+- Keep middleware focused on single responsibility
+- Use dependency injection for services (auto-wired)
+- Return early (short-circuit) for failed validations
+- Always call `$next($request, $response)` to continue pipeline
+- Use middleware aliases for cleaner route definitions
+- Order matters: authentication before authorization, validation before processing
 
 #### MVC vs ADR Patterns
 

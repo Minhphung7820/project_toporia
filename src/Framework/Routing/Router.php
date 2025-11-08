@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Toporia\Framework\Routing;
 
 use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Http\Middleware\MiddlewarePipeline;
 use Toporia\Framework\Http\Request;
 use Toporia\Framework\Http\Response;
 
@@ -26,9 +27,9 @@ final class Router implements RouterInterface
     private RouteCollectionInterface $routes;
 
     /**
-     * @var array<string, string> Middleware aliases
+     * @var MiddlewarePipeline Middleware pipeline builder.
      */
-    private array $middlewareAliases = [];
+    private MiddlewarePipeline $middlewarePipeline;
 
     /**
      * @param Request $request Current HTTP request.
@@ -43,6 +44,7 @@ final class Router implements RouterInterface
         ?RouteCollectionInterface $routes = null
     ) {
         $this->routes = $routes ?? new RouteCollection();
+        $this->middlewarePipeline = new MiddlewarePipeline($container);
     }
 
     /**
@@ -53,19 +55,8 @@ final class Router implements RouterInterface
      */
     public function setMiddlewareAliases(array $aliases): self
     {
-        $this->middlewareAliases = $aliases;
+        $this->middlewarePipeline->addAliases($aliases);
         return $this;
-    }
-
-    /**
-     * Resolve middleware alias to class name.
-     *
-     * @param string $alias
-     * @return string
-     */
-    private function resolveMiddleware(string $alias): string
-    {
-        return $this->middlewareAliases[$alias] ?? $alias;
     }
 
     /**
@@ -167,8 +158,8 @@ final class Router implements RouterInterface
         // Build the core handler
         $coreHandler = $this->buildCoreHandler($handler, $parameters);
 
-        // Build middleware pipeline
-        $pipeline = $this->buildMiddlewarePipeline($route->getMiddleware(), $coreHandler);
+        // Build middleware pipeline using MiddlewarePipeline class
+        $pipeline = $this->middlewarePipeline->build($route->getMiddleware(), $coreHandler);
 
         // Execute pipeline
         $pipeline($this->request, $this->response);
@@ -218,32 +209,6 @@ final class Router implements RouterInterface
         };
     }
 
-    /**
-     * Build middleware pipeline around the core handler.
-     *
-     * @param array<string> $middlewareClasses Middleware class names or aliases.
-     * @param callable $coreHandler Core route handler.
-     * @return callable
-     */
-    private function buildMiddlewarePipeline(array $middlewareClasses, callable $coreHandler): callable
-    {
-        $pipeline = $coreHandler;
-
-        // Build middleware chain in reverse order
-        foreach (array_reverse($middlewareClasses) as $middlewareAlias) {
-            $currentPipeline = $pipeline;
-
-            // Resolve alias to actual class name
-            $middlewareClass = $this->resolveMiddleware($middlewareAlias);
-
-            $pipeline = function (Request $req, Response $res) use ($middlewareClass, $currentPipeline) {
-                $middleware = $this->container->get($middlewareClass);
-                return $middleware->handle($req, $res, $currentPipeline);
-            };
-        }
-
-        return $pipeline;
-    }
 
     /**
      * Handle 404 Not Found response.
