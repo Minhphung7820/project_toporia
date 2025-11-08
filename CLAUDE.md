@@ -35,6 +35,25 @@ php -S localhost:8000 -t public
 
 The application entry point is [public/index.php](public/index.php).
 
+### Console Commands
+```bash
+php console list                    # List all available commands
+php console cache:clear             # Clear application cache
+php console cache:clear --store=redis  # Clear specific cache store
+
+# Queue commands
+php console queue:work              # Start queue worker (default queue)
+php console queue:work --queue=emails  # Process specific queue
+php console queue:work --max-jobs=100  # Limit number of jobs
+php console queue:work --sleep=5    # Sleep duration between jobs
+php console queue:work --stop-when-empty  # Stop when queue is empty
+
+# Schedule commands
+php console schedule:run            # Run due scheduled tasks (call from cron)
+php console schedule:run --verbose  # Verbose output
+php console schedule:list           # List all scheduled tasks
+```
+
 ## Architecture
 
 ### Layer Structure
@@ -75,6 +94,16 @@ The codebase follows Clean Architecture principles with strict layer separation:
    - Support for both event objects and simple event names
    - Generic event class for simple use cases
    - Event subscriber pattern with `subscribe()`
+
+   **Console** (`Toporia\Framework\Console\`)
+   - Professional CLI framework with Command pattern
+   - Interfaces: `InputInterface`, `OutputInterface`
+   - Command base class with dependency injection
+   - Input parsing: arguments, options, flags (--option, -v)
+   - Output formatting: colors, tables, interactive prompts
+   - Auto-registration via Console Kernel
+   - Built-in commands: cache:clear, queue:work, schedule:run
+   - Entry point: [console](console) executable
 
    **Middleware** (`Toporia\Framework\Http\Middleware\`)
    - Interface: `MiddlewareInterface`
@@ -293,22 +322,87 @@ $router->post('/v2/products', CreateProductAction::class);
 - Fluent middleware registration
 - Named routes for URL generation
 - Support for controller arrays and invokable classes
+- Route grouping with shared attributes
 - Automatic route loading via `RouteServiceProvider`
+
+**Route Groups:**
+
+Group routes with shared attributes (middleware, prefix, namespace):
+
+```php
+// Group with prefix and middleware
+$router->group([
+    'prefix' => 'admin',
+    'middleware' => ['auth', 'admin'],
+], function (Router $router) {
+    $router->get('/dashboard', [AdminController::class, 'index']);
+    $router->get('/users', [AdminController::class, 'users']);
+    // All routes will have '/admin' prefix and 'auth', 'admin' middleware
+});
+
+// Group with namespace
+$router->group([
+    'namespace' => 'App\\Presentation\\Http\\Controllers\\Api',
+    'prefix' => 'api/v1',
+], function (Router $router) {
+    $router->get('/users', [UserApiController::class, 'index']);
+    // Controller resolves to: App\Presentation\Http\Controllers\Api\UserApiController
+});
+
+// Nested groups
+$router->group(['prefix' => 'api'], function (Router $router) {
+    $router->group(['prefix' => 'v1'], function (Router $router) {
+        $router->get('/products', [ProductApiController::class, 'index']);
+        // Route path: /api/v1/products
+    });
+});
+
+// Named route groups
+$router->group(['name' => 'admin.'], function (Router $router) {
+    $router->get('/dashboard', [AdminController::class, 'index'])->name('dashboard');
+    // Route name: admin.dashboard
+});
+```
 
 **Middleware Configuration:**
 
-Global middleware and aliases are configured in [config/middleware.php](config/middleware.php):
+Middleware groups and aliases are configured in [config/middleware.php](config/middleware.php):
 
 ```php
 return [
-    'global' => [
-        // Middleware that run on every request
+    'groups' => [
+        'web' => [
+            AddSecurityHeaders::class,  // Applied to all web routes
+        ],
+        'api' => [
+            ValidateJsonRequest::class,  // Applied to all API routes
+        ],
     ],
     'aliases' => [
         'auth' => Authenticate::class,
         'admin' => AdminMiddleware::class,
     ],
 ];
+```
+
+**Multiple Route Files:**
+
+RouteServiceProvider automatically loads routes from multiple files with appropriate middleware groups:
+
+- [routes/web.php](routes/web.php) - Web routes with 'web' middleware group
+- [routes/api.php](routes/api.php) - API routes with 'api' middleware group + '/api' prefix
+
+```php
+// In RouteServiceProvider
+protected function loadWebRoutes(Application $app, Router $router, array $middleware): void
+{
+    $router->group([
+        'middleware' => $middleware,  // 'web' middleware group from config
+        'namespace' => 'App\\Presentation\\Http\\Controllers',
+    ], function (Router $router) use ($app) {
+        require $app->path('routes/web.php');
+    });
+}
 ```
 
 #### Event System
@@ -515,6 +609,104 @@ final class RateLimiter implements MiddlewareInterface
 - Always call `$next($request, $response)` to continue pipeline
 - Use middleware aliases for cleaner route definitions
 - Order matters: authentication before authorization, validation before processing
+
+#### Console Commands
+
+Create professional CLI commands following Command pattern with dependency injection.
+
+**Creating Commands:**
+
+```php
+use Toporia\Framework\Console\Command;
+
+final class MyCommand extends Command
+{
+    protected string $signature = 'my:command';
+    protected string $description = 'Description of my command';
+
+    public function __construct(
+        private readonly SomeService $service
+    ) {} // Dependencies auto-wired!
+
+    public function handle(): int
+    {
+        // Get arguments and options
+        $arg = $this->argument(0, 'default');  // Positional argument
+        $name = $this->argument('name');        // Named argument
+        $force = $this->option('force', false); // Option with default
+        $verbose = $this->hasOption('verbose'); // Check if option exists
+
+        // Output
+        $this->info('Processing...');
+        $this->success('Done!');
+        $this->error('Something failed');
+        $this->warn('Warning message');
+
+        // Tables
+        $this->table(
+            ['Name', 'Email'],
+            [['John', 'john@example.com'], ['Jane', 'jane@example.com']]
+        );
+
+        // Interactive prompts
+        $answer = $this->confirm('Are you sure?', false);
+        $input = $this->ask('What is your name?', 'default');
+        $choice = $this->choice('Choose one:', ['Option 1', 'Option 2']);
+
+        // Use injected dependencies
+        $result = $this->service->doSomething();
+
+        return 0; // 0 = success, non-zero = error
+    }
+}
+```
+
+**Registering Commands** in [src/App/Presentation/Console/Kernel.php](src/App/Presentation/Console/Kernel.php):
+
+```php
+public function commands(): array
+{
+    return [
+        CacheClearCommand::class,
+        QueueWorkCommand::class,
+        MyCommand::class,  // Add your command here
+    ];
+}
+```
+
+**Running Commands:**
+
+```bash
+php console list                # List all commands
+php console my:command          # Run command
+php console my:command arg1 arg2  # Positional arguments
+php console my:command name=John  # Named argument
+php console my:command --force  # Boolean flag
+php console my:command --retries=3  # Option with value
+php console my:command -v       # Short option (verbosity)
+php console my:command --no-interaction  # Disable prompts
+```
+
+**Built-in Commands:**
+
+- `cache:clear [--store=driver]` - Clear cache
+- `queue:work [--queue=name] [--max-jobs=N] [--sleep=seconds] [--stop-when-empty]` - Process queue jobs
+- `schedule:run [--verbose]` - Run scheduled tasks (call from cron every minute)
+- `schedule:list` - List all scheduled tasks
+
+**Production Setup:**
+
+```bash
+# Crontab for scheduled tasks
+* * * * * cd /path/to/project && php console schedule:run >> storage/logs/schedule.log 2>&1
+
+# Supervisor for queue worker
+[program:queue-worker]
+command=php /path/to/project/console queue:work --sleep=3 --max-jobs=1000
+autostart=true
+autorestart=true
+user=www-data
+```
 
 #### MVC vs ADR Patterns
 
@@ -1900,36 +2092,59 @@ CREATE TABLE failed_jobs (
 
 Cron-like task scheduler within the application.
 
-**Scheduler:**
+**Configure Scheduled Tasks** in [src/App/Providers/ScheduleServiceProvider.php](src/App/Providers/ScheduleServiceProvider.php):
 
 ```php
-use Toporia\Framework\Schedule\Scheduler;
+private function defineSchedule(Scheduler $scheduler, ContainerInterface $container): void
+{
+    // Run every minute
+    $scheduler->call(function () {
+        // Your task logic
+    })->everyMinute()->description('Task description');
 
-$schedule = app('schedule');
+    // Run every 5 minutes
+    $scheduler->call(function () {
+        // Clean up old logs
+        cleanLogs();
+    })->everyMinutes(5)->description('Cleanup logs');
 
-// Schedule tasks using fluent API
-$schedule->call(function () {
-    // Clean up old logs
-    cleanLogs();
-})->daily();
+    // Run daily at specific time
+    $scheduler->call(function () {
+        // Send daily reports
+        sendReports();
+    })->dailyAt('08:00')->description('Send daily reports');
 
-$schedule->call(function () {
-    // Send daily reports
-    sendReports();
-})->dailyAt('08:00');
+    // Run weekly
+    $scheduler->call(function () {
+        // Backup database
+        backupDatabase();
+    })->sundays()->dailyAt('02:00')->description('Weekly backup');
 
-$schedule->call(function () {
-    // Backup database
-    backupDatabase();
-})->weekly()->sundays()->at('02:00');
+    // Execute shell command
+    $scheduler->exec('php console cache:clear')
+        ->hourly()
+        ->description('Clear cache hourly');
 
-$schedule->exec('php artisan inspire')
-    ->hourly()
-    ->description('Display inspirational quote');
+    // With conditions
+    $scheduler->call(function () {
+        // Health check
+    })->everyMinutes(5)
+      ->when(fn() => date('H') >= 9 && date('H') < 18)  // Business hours only
+      ->description('Health check');
+}
+```
 
-$schedule->job(ProcessReportsJob::class)
-    ->everyMinutes(15)
-    ->weekdays();
+**List Scheduled Tasks:**
+
+```bash
+php console schedule:list
+```
+
+**Run Due Tasks:**
+
+```bash
+php console schedule:run              # Run all due tasks
+php console schedule:run --verbose    # Verbose output
 ```
 
 **Frequency Methods:**
@@ -1972,30 +2187,15 @@ $schedule->call($callback)->daily()->skip(function () {
 });
 ```
 
-**Running the Scheduler:**
+**Setup Cron (Production):**
 
-```php
-// In a cron job (run every minute):
-// * * * * * php /path/to/project/schedule.php
+Add to crontab (`crontab -e`):
 
-// schedule.php
-require __DIR__ . '/bootstrap/app.php';
-
-$schedule = app('schedule');
-
-// Define your schedule here or load from config
-
-// Run due tasks
-$schedule->runDueTasks();
+```bash
+* * * * * cd /path/to/project && php console schedule:run >> storage/logs/schedule.log 2>&1
 ```
 
-**List All Tasks:**
-```php
-$tasks = $schedule->listTasks();
-foreach ($tasks as $task) {
-    echo "{$task['description']}: {$task['expression']}\n";
-}
-```
+This runs every minute and executes only tasks that are due. All task configuration is centralized in `ScheduleServiceProvider`.
 
 ## Security Best Practices
 

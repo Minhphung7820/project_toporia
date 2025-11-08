@@ -8,6 +8,7 @@ use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Foundation\ServiceProvider;
 use Toporia\Framework\Queue\QueueInterface;
 use Toporia\Framework\Queue\QueueManager;
+use Toporia\Framework\Queue\QueueManagerInterface;
 
 /**
  * Queue Service Provider
@@ -31,6 +32,7 @@ final class QueueServiceProvider extends ServiceProvider
             return new QueueManager($config);
         });
 
+        $container->bind(QueueManagerInterface::class, fn($c) => $c->get(QueueManager::class));
         $container->bind(QueueInterface::class, fn($c) => $c->get(QueueManager::class)->driver());
         $container->bind('queue', fn($c) => $c->get(QueueManager::class));
     }

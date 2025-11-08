@@ -32,6 +32,26 @@ final class Router implements RouterInterface
     private MiddlewarePipeline $middlewarePipeline;
 
     /**
+     * @var string Current prefix for route groups
+     */
+    private string $currentPrefix = '';
+
+    /**
+     * @var array<string> Current middleware stack for route groups
+     */
+    private array $currentMiddleware = [];
+
+    /**
+     * @var string|null Current namespace for route groups
+     */
+    private ?string $currentNamespace = null;
+
+    /**
+     * @var string Current name prefix for route groups
+     */
+    private string $currentNamePrefix = '';
+
+    /**
      * @param Request $request Current HTTP request.
      * @param Response $response HTTP response handler.
      * @param ContainerInterface $container Dependency injection container.
@@ -139,7 +159,31 @@ final class Router implements RouterInterface
         mixed $handler,
         array $middleware
     ): RouteInterface {
-        $route = new Route($methods, $path, $handler, $middleware);
+        // Apply current prefix from groups
+        $fullPath = $this->currentPrefix . '/' . ltrim($path, '/');
+        $fullPath = '/' . trim($fullPath, '/');
+        if ($fullPath !== '/') {
+            $fullPath = rtrim($fullPath, '/');
+        }
+
+        // Merge group middleware with route middleware
+        $fullMiddleware = array_merge($this->currentMiddleware, $middleware);
+
+        // Apply namespace to handler if it's an array with class string
+        if (is_array($handler) && isset($handler[0]) && is_string($handler[0])) {
+            if ($this->currentNamespace && !str_contains($handler[0], '\\')) {
+                $handler[0] = $this->currentNamespace . '\\' . $handler[0];
+            }
+        }
+
+        $route = new Route($methods, $fullPath, $handler, $fullMiddleware);
+
+        // Apply name prefix if set
+        if ($this->currentNamePrefix) {
+            // Store the name prefix for later use when name() is called on route
+            // This will be handled by Route class
+        }
+
         $this->routes->add($route);
         return $route;
     }
@@ -228,5 +272,113 @@ final class Router implements RouterInterface
     public function getRoutes(): RouteCollectionInterface
     {
         return $this->routes;
+    }
+
+    // ============================================================================
+    // Route Grouping Support
+    // ============================================================================
+
+    /**
+     * {@inheritdoc}
+     */
+    public function group(array $attributes, callable $callback): void
+    {
+        $previousPrefix = $this->currentPrefix;
+        $previousMiddleware = $this->currentMiddleware;
+        $previousNamespace = $this->currentNamespace;
+        $previousNamePrefix = $this->currentNamePrefix;
+
+        // Apply group attributes
+        if (isset($attributes['prefix'])) {
+            $this->currentPrefix = $previousPrefix . '/' . trim($attributes['prefix'], '/');
+        }
+
+        if (isset($attributes['middleware'])) {
+            $this->currentMiddleware = array_merge(
+                $previousMiddleware,
+                (array) $attributes['middleware']
+            );
+        }
+
+        if (isset($attributes['namespace'])) {
+            $this->currentNamespace = rtrim($attributes['namespace'], '\\');
+        }
+
+        if (isset($attributes['name'])) {
+            $this->currentNamePrefix = $previousNamePrefix . $attributes['name'];
+        }
+
+        // Execute callback
+        $callback($this);
+
+        // Restore previous state
+        $this->currentPrefix = $previousPrefix;
+        $this->currentMiddleware = $previousMiddleware;
+        $this->currentNamespace = $previousNamespace;
+        $this->currentNamePrefix = $previousNamePrefix;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getCurrentPrefix(): string
+    {
+        return $this->currentPrefix;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setCurrentPrefix(string $prefix): void
+    {
+        $this->currentPrefix = $prefix;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getCurrentMiddleware(): array
+    {
+        return $this->currentMiddleware;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setCurrentMiddleware(array $middleware): void
+    {
+        $this->currentMiddleware = $middleware;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getCurrentNamespace(): ?string
+    {
+        return $this->currentNamespace;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setCurrentNamespace(?string $namespace): void
+    {
+        $this->currentNamespace = $namespace;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getCurrentNamePrefix(): string
+    {
+        return $this->currentNamePrefix;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function setCurrentNamePrefix(string $prefix): void
+    {
+        $this->currentNamePrefix = $prefix;
     }
 }

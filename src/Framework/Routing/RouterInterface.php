@@ -75,4 +75,73 @@ interface RouterInterface
      * @return void
      */
     public function dispatch(): void;
+
+    /**
+     * Create a route group with shared attributes
+     *
+     * @param array<string, mixed> $attributes Group attributes (prefix, middleware, namespace, name)
+     * @param callable $callback Callback to define routes
+     * @return void
+     */
+    public function group(array $attributes, callable $callback): void;
+
+    /**
+     * Get current prefix (for group nesting)
+     *
+     * @return string
+     */
+    public function getCurrentPrefix(): string;
+
+    /**
+     * Set current prefix (for group nesting)
+     *
+     * @param string $prefix
+     * @return void
+     */
+    public function setCurrentPrefix(string $prefix): void;
+
+    /**
+     * Get current middleware stack (for group nesting)
+     *
+     * @return array<string>
+     */
+    public function getCurrentMiddleware(): array;
+
+    /**
+     * Set current middleware stack (for group nesting)
+     *
+     * @param array<string> $middleware
+     * @return void
+     */
+    public function setCurrentMiddleware(array $middleware): void;
+
+    /**
+     * Get current namespace (for group nesting)
+     *
+     * @return string|null
+     */
+    public function getCurrentNamespace(): ?string;
+
+    /**
+     * Set current namespace (for group nesting)
+     *
+     * @param string|null $namespace
+     * @return void
+     */
+    public function setCurrentNamespace(?string $namespace): void;
+
+    /**
+     * Get current name prefix (for group nesting)
+     *
+     * @return string
+     */
+    public function getCurrentNamePrefix(): string;
+
+    /**
+     * Set current name prefix (for group nesting)
+     *
+     * @param string $prefix
+     * @return void
+     */
+    public function setCurrentNamePrefix(string $prefix): void;
 }

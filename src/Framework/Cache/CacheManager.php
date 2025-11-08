@@ -10,7 +10,7 @@ namespace Toporia\Framework\Cache;
  * Manages multiple cache drivers and provides a unified interface.
  * Supports driver switching and fallback mechanisms.
  */
-final class CacheManager implements CacheInterface
+final class CacheManager implements CacheManagerInterface
 {
     private array $drivers = [];
     private ?string $defaultDriver = null;
@@ -139,5 +139,15 @@ final class CacheManager implements CacheInterface
         foreach ($this->drivers as $driver) {
             $driver->clear();
         }
+    }
+
+    /**
+     * Get default driver name
+     *
+     * @return string
+     */
+    public function getDefaultDriver(): string
+    {
+        return $this->defaultDriver ?? 'file';
     }
 }

@@ -12,19 +12,18 @@ use Toporia\Framework\Http\Response;
  * Security headers middleware.
  *
  * Adds common security headers to all responses.
- * Demonstrates use of AbstractMiddleware after hook.
+ * Headers must be added in before() hook since Response sends output immediately.
  */
 final class AddSecurityHeaders extends AbstractMiddleware
 {
     /**
-     * Add security headers to response.
+     * Add security headers to response before handler executes.
      *
      * @param Request $request
      * @param Response $response
-     * @param mixed $result
      * @return void
      */
-    protected function after(Request $request, Response $response, mixed $result): void
+    protected function before(Request $request, Response $response): void
     {
         $response->header('X-Content-Type-Options', 'nosniff');
         $response->header('X-Frame-Options', 'SAMEORIGIN');

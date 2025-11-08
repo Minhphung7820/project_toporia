@@ -1,0 +1,54 @@
+# Composer
+/vendor/
+composer.lock
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+/storage/logs/*.log
+
+# Cache
+/storage/cache/*
+!/storage/cache/.gitkeep
+
+# Session
+/storage/sessions/*
+!/storage/sessions/.gitkeep
+
+# Temp files
+/storage/temp/*
+!/storage/temp/.gitkeep
+
+# Claude Code AI
+CLAUDE.md
+
+# Node modules (if using frontend assets)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build artifacts
+/build/
+/dist/
+
+# Testing
+.phpunit.result.cache
+/coverage/
+
+# Deployment
+deployment/

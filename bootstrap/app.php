@@ -16,6 +16,7 @@ use Toporia\Framework\Providers\HttpServiceProvider;
 use Toporia\Framework\Providers\EventServiceProvider;
 use Toporia\Framework\Providers\RoutingServiceProvider;
 use Toporia\Framework\Providers\DatabaseServiceProvider;
+use Toporia\Framework\Providers\ConsoleServiceProvider;
 
 // Application Service Providers
 use App\Providers\AppServiceProvider;
@@ -67,6 +68,7 @@ $app->registerProviders([
     HttpServiceProvider::class,
     EventServiceProvider::class,
     RoutingServiceProvider::class,
+    ConsoleServiceProvider::class,
     \Toporia\Framework\Providers\AuthServiceProvider::class,  // Auth system
     \Toporia\Framework\Providers\SecurityServiceProvider::class,  // Security (CSRF, Gates, Cookies)
     \Toporia\Framework\Providers\CacheServiceProvider::class,     // Cache system
@@ -79,6 +81,7 @@ $app->registerProviders([
     RepositoryServiceProvider::class,
     \App\Providers\EventServiceProvider::class,
     \App\Providers\RouteServiceProvider::class,
+    \App\Providers\ScheduleServiceProvider::class,  // Scheduled tasks configuration
 ]);
 
 /*

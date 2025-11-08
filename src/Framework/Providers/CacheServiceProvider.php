@@ -8,6 +8,7 @@ use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Foundation\ServiceProvider;
 use Toporia\Framework\Cache\CacheInterface;
 use Toporia\Framework\Cache\CacheManager;
+use Toporia\Framework\Cache\CacheManagerInterface;
 
 /**
  * Cache Service Provider
@@ -26,6 +27,7 @@ final class CacheServiceProvider extends ServiceProvider
             return new CacheManager($config);
         });
 
+        $container->bind(CacheManagerInterface::class, fn($c) => $c->get(CacheManager::class));
         $container->bind(CacheInterface::class, fn($c) => $c->get(CacheManager::class));
         $container->bind('cache', fn($c) => $c->get(CacheManager::class));
     }

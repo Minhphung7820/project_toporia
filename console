@@ -1,0 +1,53 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Console Entry Point
+ *
+ * Professional CLI for framework commands.
+ *
+ * Usage:
+ *   php console list                    # List all commands
+ *   php console cache:clear             # Clear cache
+ *   php console queue:work              # Start queue worker
+ *   php console schedule:run            # Run scheduled tasks
+ *   php console schedule:list           # List scheduled tasks
+ *
+ * Options:
+ *   --verbose, -v          # Verbose output
+ *   --no-interaction       # Disable interactive prompts
+ */
+
+// ============================================================================
+// Bootstrap
+// ============================================================================
+
+require __DIR__ . '/vendor/autoload.php';
+
+// Bootstrap application
+$app = require __DIR__ . '/bootstrap/app.php';
+
+// ============================================================================
+// Run Console Application
+// ============================================================================
+
+use Toporia\Framework\Console\Application;
+
+try {
+    /** @var Application $console */
+    $console = $app->getContainer()->get(Application::class);
+
+    $exitCode = $console->run($argv);
+
+    exit($exitCode);
+} catch (\Throwable $e) {
+    fwrite(STDERR, "[ERROR] {$e->getMessage()}\n");
+
+    if (in_array('--verbose', $argv) || in_array('-v', $argv)) {
+        fwrite(STDERR, $e->getTraceAsString() . "\n");
+    }
+
+    exit(1);
+}

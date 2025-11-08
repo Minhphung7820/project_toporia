@@ -16,23 +16,31 @@ use App\Presentation\Http\Middleware\ValidateJsonRequest;
 return [
     /*
     |--------------------------------------------------------------------------
-    | Global Middleware
+    | Middleware Groups
     |--------------------------------------------------------------------------
     |
-    | Global middleware are executed on every request to your application.
-    | Add middleware class names to this array.
+    | Middleware groups allow you to apply multiple middleware to routes easily.
+    | Each group is applied to a specific set of routes (e.g., web, api).
     |
-    | Example use cases:
-    | - Security headers on all responses
-    | - Request/response logging
-    | - CORS handling
-    | - Input sanitization
+    | Groups are automatically applied by RouteServiceProvider when loading
+    | route files:
+    | - routes/web.php   -> 'web' middleware group
+    | - routes/api.php   -> 'api' middleware group
     |
     */
-    'global' => [
-        // Add global middleware here
-        // AddSecurityHeaders::class,  // Uncomment to add security headers
-        // LogRequest::class,           // Uncomment to log all requests
+    'groups' => [
+        'web' => [
+            // Web routes middleware
+            AddSecurityHeaders::class,  // Security headers for web
+            // LogRequest::class,        // Uncomment to log web requests
+        ],
+
+        'api' => [
+            // API routes middleware
+            ValidateJsonRequest::class,  // Validate JSON for API
+            // LogRequest::class,         // Uncomment to log API requests
+            // ThrottleRequests::class,   // Uncomment for rate limiting
+        ],
     ],
 
     /*

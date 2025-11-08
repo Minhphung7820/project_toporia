@@ -12,7 +12,7 @@ use Toporia\Framework\Database\Connection;
  * Manages multiple queue drivers and provides a unified interface.
  * Factory for creating queue driver instances.
  */
-final class QueueManager
+final class QueueManager implements QueueManagerInterface
 {
     private array $drivers = [];
     private ?string $defaultDriver = null;
@@ -109,5 +109,60 @@ final class QueueManager
     public function getConnections(): array
     {
         return array_keys($this->config['connections'] ?? []);
+    }
+
+    /**
+     * Get default driver name
+     *
+     * @return string
+     */
+    public function getDefaultDriver(): string
+    {
+        return $this->defaultDriver ?? 'sync';
+    }
+
+    /**
+     * Pop a job from the queue
+     *
+     * @param string $queue
+     * @return JobInterface|null
+     */
+    public function pop(string $queue = 'default'): ?JobInterface
+    {
+        return $this->driver()->pop($queue);
+    }
+
+    /**
+     * Mark a job as failed
+     *
+     * @param JobInterface $job
+     * @param \Throwable $exception
+     * @return void
+     */
+    public function failed(JobInterface $job, \Throwable $exception): void
+    {
+        $this->driver()->failed($job, $exception);
+    }
+
+    /**
+     * Get the size of the queue
+     *
+     * @param string $queue
+     * @return int
+     */
+    public function size(string $queue = 'default'): int
+    {
+        return $this->driver()->size($queue);
+    }
+
+    /**
+     * Clear all jobs from the queue
+     *
+     * @param string $queue
+     * @return void
+     */
+    public function clear(string $queue = 'default'): void
+    {
+        $this->driver()->clear($queue);
     }
 }
