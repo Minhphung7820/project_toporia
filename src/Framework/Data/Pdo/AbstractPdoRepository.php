@@ -86,7 +86,12 @@ abstract class AbstractPdoRepository extends AbstractRepository implements Repos
     {
         $results = $this->query()->get();
 
-        return array_map([$this, 'hydrate'], $results);
+        // Ensure we have an array (RowCollection or plain array)
+        $data = $results instanceof \Toporia\Framework\Database\Query\RowCollection
+            ? $results->all()
+            : $results;
+
+        return array_map([$this, 'hydrate'], $data);
     }
 
     /**
