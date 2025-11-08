@@ -828,6 +828,155 @@ $table->index(['name']); // Regular index
 $table->foreign('user_id', 'id', 'users'); // Foreign key
 ```
 
+### Model Relationships
+
+The ORM supports Eloquent-style relationships with eager loading.
+
+**Defining Relationships:**
+```php
+use Toporia\Framework\Database\ORM\Model;
+
+class User extends Model
+{
+    protected static string $table = 'users';
+
+    // One-to-One: User has one Profile
+    public function profile()
+    {
+        return $this->hasOne(Profile::class);
+    }
+
+    // One-to-Many: User has many Posts
+    public function posts()
+    {
+        return $this->hasMany(Post::class);
+    }
+
+    // Many-to-Many: User belongs to many Roles
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class, 'user_roles');
+    }
+}
+
+class Post extends Model
+{
+    protected static string $table = 'posts';
+
+    // Inverse: Post belongs to User
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    // One-to-Many: Post has many Comments
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
+    }
+}
+
+class Comment extends Model
+{
+    protected static string $table = 'comments';
+
+    public function post()
+    {
+        return $this->belongsTo(Post::class);
+    }
+}
+```
+
+**Lazy Loading (N+1 Problem):**
+```php
+// ⚠️ N+1 Problem - queries executed in loop
+$users = User::all();
+foreach ($users as $user) {
+    echo $user->profile->bio; // Separate query for each user
+}
+```
+
+**Eager Loading (Recommended):**
+```php
+// ✅ Eager Loading - 2 queries total
+$users = User::with(['profile'])->get();
+foreach ($users as $user) {
+    echo $user->profile->bio; // No additional query
+}
+
+// Multiple relationships
+$users = User::with(['profile', 'posts', 'roles'])->get();
+
+// Nested relationships
+$users = User::with(['posts.comments'])->get();
+
+// Load relationships after fetching
+$user = User::find(1);
+$user->load(['posts', 'profile']);
+```
+
+**Working with Relationships:**
+```php
+// Access loaded relationship
+$user = User::with(['posts'])->find(1);
+$posts = $user->posts; // ModelCollection
+
+// Check if relationship is loaded
+if ($user->relationLoaded('posts')) {
+    // Relationship is already loaded
+}
+
+// Lazy load if not already loaded
+$profile = $user->profile; // Loads from DB if not eager loaded
+```
+
+**Many-to-Many Operations:**
+```php
+$user = User::find(1);
+
+// Attach role to user
+$user->roles()->attach(2); // role_id = 2
+
+// Attach with pivot data
+$user->roles()->attach(3, ['expires_at' => '2025-12-31']);
+
+// Detach specific role
+$user->roles()->detach(2);
+
+// Detach all roles
+$user->roles()->detach();
+
+// Sync roles (remove all, add new)
+$user->roles()->sync([1, 2, 3]);
+```
+
+**Custom Foreign Keys:**
+```php
+class User extends Model
+{
+    // Specify custom foreign key
+    public function posts()
+    {
+        return $this->hasMany(Post::class, 'author_id', 'id');
+    }
+}
+
+class Post extends Model
+{
+    public function author()
+    {
+        return $this->belongsTo(User::class, 'author_id', 'id');
+    }
+}
+```
+
+**Relationship Types:**
+
+- **HasOne**: One-to-one (User → Profile)
+- **HasMany**: One-to-many (User → Posts)
+- **BelongsTo**: Inverse of HasOne/HasMany (Post → User)
+- **BelongsToMany**: Many-to-many with pivot table (User ↔ Roles)
+
 ### Database Repository Pattern
 
 For repositories that need database access:

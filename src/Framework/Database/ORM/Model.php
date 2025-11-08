@@ -8,6 +8,7 @@ use Toporia\Framework\Database\ConnectionInterface;
 use Toporia\Framework\Database\Query\QueryBuilder;
 use Toporia\Framework\Database\ORM\ModelCollection;
 use Toporia\Framework\Database\Query\RowCollection;
+use Toporia\Framework\Database\ORM\Relations;
 
 /**
  * Base Active Record model.
@@ -100,6 +101,13 @@ abstract class Model implements ModelInterface
      * @var ConnectionInterface|null
      */
     private static ?ConnectionInterface $connection = null;
+
+    /**
+     * Loaded relationships.
+     *
+     * @var array<string, mixed>
+     */
+    private array $relations = [];
 
     /**
      * @param array<string,mixed> $attributes Initial attributes.
@@ -545,6 +553,41 @@ abstract class Model implements ModelInterface
     }
 
     /**
+     * Set a loaded relationship.
+     *
+     * @param string $name Relationship name
+     * @param mixed $value Loaded models
+     * @return $this
+     */
+    public function setRelation(string $name, mixed $value): self
+    {
+        $this->relations[$name] = $value;
+        return $this;
+    }
+
+    /**
+     * Get a loaded relationship.
+     *
+     * @param string $name Relationship name
+     * @return mixed
+     */
+    public function getRelation(string $name): mixed
+    {
+        return $this->relations[$name] ?? null;
+    }
+
+    /**
+     * Check if a relationship has been loaded.
+     *
+     * @param string $name Relationship name
+     * @return bool
+     */
+    public function relationLoaded(string $name): bool
+    {
+        return array_key_exists($name, $this->relations);
+    }
+
+    /**
      * Create a typed collection for this model type.
      *
      * @param array<int,static> $models
@@ -593,4 +636,185 @@ abstract class Model implements ModelInterface
         /** @var array<int, array<string,mixed>> $result */
         return static::hydrate($result);
     }
+
+    /**
+     * Define a one-to-one relationship.
+     *
+     * @param class-string<Model> $related Related model class
+     * @param string|null $foreignKey Foreign key on related table (default: {parent}_id)
+     * @param string|null $localKey Local key on parent table (default: id)
+     * @return Relations\HasOne
+     */
+    protected function hasOne(string $related, ?string $foreignKey = null, ?string $localKey = null): Relations\HasOne
+    {
+        $foreignKey = $foreignKey ?? $this->getForeignKey();
+        $localKey = $localKey ?? static::$primaryKey;
+
+        $query = call_user_func([$related, 'query']);
+
+        return new Relations\HasOne($query, $this, $related, $foreignKey, $localKey);
+    }
+
+    /**
+     * Define a one-to-many relationship.
+     *
+     * @param class-string<Model> $related Related model class
+     * @param string|null $foreignKey Foreign key on related table (default: {parent}_id)
+     * @param string|null $localKey Local key on parent table (default: id)
+     * @return Relations\HasMany
+     */
+    protected function hasMany(string $related, ?string $foreignKey = null, ?string $localKey = null): Relations\HasMany
+    {
+        $foreignKey = $foreignKey ?? $this->getForeignKey();
+        $localKey = $localKey ?? static::$primaryKey;
+
+        $query = call_user_func([$related, 'query']);
+
+        return new Relations\HasMany($query, $this, $related, $foreignKey, $localKey);
+    }
+
+    /**
+     * Define an inverse one-to-one or one-to-many relationship.
+     *
+     * @param class-string<Model> $related Related model class
+     * @param string|null $foreignKey Foreign key on current table (default: {related}_id)
+     * @param string|null $ownerKey Primary key on related table (default: id)
+     * @return Relations\BelongsTo
+     */
+    protected function belongsTo(string $related, ?string $foreignKey = null, ?string $ownerKey = null): Relations\BelongsTo
+    {
+        $foreignKey = $foreignKey ?? $this->guessBelongsToForeignKey($related);
+        $ownerKey = $ownerKey ?? call_user_func([$related, 'getPrimaryKey']);
+
+        $query = call_user_func([$related, 'query']);
+
+        return new Relations\BelongsTo($query, $this, $related, $foreignKey, $ownerKey);
+    }
+
+    /**
+     * Define a many-to-many relationship.
+     *
+     * @param class-string<Model> $related Related model class
+     * @param string|null $pivotTable Pivot table name
+     * @param string|null $foreignPivotKey Foreign key in pivot for parent
+     * @param string|null $relatedPivotKey Foreign key in pivot for related
+     * @param string|null $parentKey Parent primary key
+     * @param string|null $relatedKey Related primary key
+     * @return Relations\BelongsToMany
+     */
+    protected function belongsToMany(
+        string $related,
+        ?string $pivotTable = null,
+        ?string $foreignPivotKey = null,
+        ?string $relatedPivotKey = null,
+        ?string $parentKey = null,
+        ?string $relatedKey = null
+    ): Relations\BelongsToMany {
+        $foreignPivotKey = $foreignPivotKey ?? $this->getForeignKey();
+        $relatedPivotKey = $relatedPivotKey ?? $this->getRelatedForeignKey($related);
+        $parentKey = $parentKey ?? static::$primaryKey;
+        $relatedKey = $relatedKey ?? call_user_func([$related, 'getPrimaryKey']);
+
+        $query = call_user_func([$related, 'query']);
+
+        return new Relations\BelongsToMany(
+            $query,
+            $this,
+            $related,
+            $pivotTable ?? $this->guessPivotTable($related),
+            $foreignPivotKey,
+            $relatedPivotKey,
+            $parentKey,
+            $relatedKey
+        );
+    }
+
+    /**
+     * Get the default foreign key name for this model.
+     *
+     * @return string
+     */
+    protected function getForeignKey(): string
+    {
+        $parts = explode('\\', static::class);
+        $className = end($parts);
+        return strtolower($className) . '_id';
+    }
+
+    /**
+     * Get the foreign key name for a related model.
+     *
+     * @param class-string<Model> $related
+     * @return string
+     */
+    protected function getRelatedForeignKey(string $related): string
+    {
+        $parts = explode('\\', $related);
+        $className = end($parts);
+        return strtolower($className) . '_id';
+    }
+
+    /**
+     * Guess the belongs to foreign key.
+     *
+     * @param class-string<Model> $related
+     * @return string
+     */
+    protected function guessBelongsToForeignKey(string $related): string
+    {
+        return $this->getRelatedForeignKey($related);
+    }
+
+    /**
+     * Guess the pivot table name for a many-to-many relationship.
+     *
+     * @param class-string<Model> $related
+     * @return string
+     */
+    protected function guessPivotTable(string $related): string
+    {
+        $models = [
+            strtolower(basename(str_replace('\\', '/', static::class))),
+            strtolower(basename(str_replace('\\', '/', $related)))
+        ];
+
+        sort($models);
+
+        return implode('_', $models);
+    }
+
+    /**
+     * Eager load relationships.
+     *
+     * @param array<string> $relations Relationship names to load
+     * @return static
+     */
+    public function load(array $relations): static
+    {
+        foreach ($relations as $relation) {
+            if (!$this->relationLoaded($relation)) {
+                $result = $this->{$relation}();
+
+                if ($result instanceof Relations\RelationInterface) {
+                    $this->setRelation($relation, $result->getResults());
+                }
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Static eager loading for query results.
+     *
+     * @param array<string> $relations Relationship names
+     * @return QueryBuilder
+     */
+    public static function with(array $relations): QueryBuilder
+    {
+        $query = static::query();
+        $query->setEagerLoad($relations);
+        return $query;
+    }
 }
+

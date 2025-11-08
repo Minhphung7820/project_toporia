@@ -14,7 +14,7 @@ final class CreateProductAction extends AbstractAction
 {
     public function __construct(private AbstractResponder $responder) {}
 
-    protected function handle(Request $request, Response $response, ...$vars)
+    protected function handle(Request $request, Response $response, mixed ...$vars): mixed
     {
         $payload = $request->input();
 
@@ -26,9 +26,11 @@ final class CreateProductAction extends AbstractAction
         $handler = new CreateProductHandler(new InMemoryProductRepository());
         $product = $handler($cmd);
 
-        return $this->responder->jsonCreated($response, [
+        $this->responder->created($response, [
             'id' => $product->id,
             'title' => $product->title
         ]);
+
+        return $response;
     }
 }

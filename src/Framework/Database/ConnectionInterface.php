@@ -85,4 +85,22 @@ interface ConnectionInterface
      * @return void
      */
     public function reconnect(): void;
+
+    /**
+     * Execute a SELECT query and return all rows.
+     *
+     * @param string $query SQL query.
+     * @param array $bindings Parameter bindings.
+     * @return array<int, array<string, mixed>>
+     */
+    public function select(string $query, array $bindings = []): array;
+
+    /**
+     * Execute an INSERT, UPDATE, or DELETE statement.
+     *
+     * @param string $query SQL query.
+     * @param array $bindings Parameter bindings.
+     * @return int Number of affected rows.
+     */
+    public function affectingStatement(string $query, array $bindings = []): int;
 }

@@ -104,9 +104,9 @@ interface QueryBuilderInterface
     /**
      * Execute query and get all results.
      *
-     * @return array<array>
+     * @return RowCollection|array<array>
      */
-    public function get(): array;
+    public function get(): RowCollection|array;
 
     /**
      * Execute query and get first result.

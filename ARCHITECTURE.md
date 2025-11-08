@@ -49,7 +49,7 @@ project_topo/
 require __DIR__ . '/../vendor/autoload.php';
 $app = require __DIR__ . '/../bootstrap/app.php';
 require __DIR__ . '/../bootstrap/helpers.php';
-$app->make(\Framework\Routing\Router::class)->dispatch();
+$app->make(\Toporia\Framework\Routing\Router::class)->dispatch();
 ```
 
 **Responsibilities:**
@@ -276,8 +276,8 @@ $router->post('/products', [ProductsController::class, 'store'])
 // src/App/Providers/CacheServiceProvider.php
 namespace App\Providers;
 
-use Framework\Foundation\ServiceProvider;
-use Framework\Container\ContainerInterface;
+use Toporia\Framework\Foundation\ServiceProvider;
+use Toporia\Framework\Container\ContainerInterface;
 
 class CacheServiceProvider extends ServiceProvider
 {

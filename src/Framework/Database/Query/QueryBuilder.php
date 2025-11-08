@@ -79,6 +79,13 @@ class QueryBuilder implements QueryBuilderInterface
     private array $bindings = [];
 
     /**
+     * Relationships to eager load.
+     *
+     * @var array<string>
+     */
+    private array $eagerLoad = [];
+
+    /**
      * @param ConnectionInterface $connection Database connection used to execute statements.
      */
     public function __construct(
@@ -453,6 +460,38 @@ class QueryBuilder implements QueryBuilderInterface
     public function getBindings(): array
     {
         return $this->bindings;
+    }
+
+    /**
+     * Set relationships to eager load.
+     *
+     * @param array<string> $relations
+     * @return $this
+     */
+    public function setEagerLoad(array $relations): self
+    {
+        $this->eagerLoad = $relations;
+        return $this;
+    }
+
+    /**
+     * Get relationships to eager load.
+     *
+     * @return array<string>
+     */
+    public function getEagerLoad(): array
+    {
+        return $this->eagerLoad;
+    }
+
+    /**
+     * Get the database connection.
+     *
+     * @return ConnectionInterface
+     */
+    public function getConnection(): ConnectionInterface
+    {
+        return $this->connection;
     }
 
     /**
