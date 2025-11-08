@@ -13,9 +13,19 @@ use Toporia\Framework\Http\Response;
  *
  * Ensures the user is authenticated before accessing protected routes.
  * Redirects to login page if not authenticated.
+ *
+ * Supports multiple guards via guard() method.
  */
 final class Authenticate implements MiddlewareInterface
 {
+    /**
+     * @param string $guard Guard name to use (default: 'web')
+     */
+    public function __construct(
+        private string $guard = 'web'
+    ) {
+    }
+
     /**
      * Handle authentication check.
      *
@@ -26,9 +36,18 @@ final class Authenticate implements MiddlewareInterface
      */
     public function handle(Request $request, Response $response, callable $next): mixed
     {
-        if (!auth()->check()) {
-            $response->setStatus(401);
-            $response->html('<h1>401 Unauthorized</h1><p><a href="/login">Login</a></p>');
+        /** @var \Toporia\Framework\Auth\AuthManagerInterface $auth */
+        $auth = auth();
+
+        if (!$auth->guard($this->guard)->check()) {
+            // Check if request expects JSON (API)
+            if ($request->expectsJson()) {
+                $response->json(['error' => 'Unauthenticated'], 401);
+                return null;
+            }
+
+            // Redirect to login for web requests
+            $response->redirect('/login');
             return null;
         }
 

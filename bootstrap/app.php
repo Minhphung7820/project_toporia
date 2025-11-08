@@ -67,6 +67,7 @@ $app->registerProviders([
     HttpServiceProvider::class,
     EventServiceProvider::class,
     RoutingServiceProvider::class,
+    \Toporia\Framework\Providers\AuthServiceProvider::class,  // Auth system
     // DatabaseServiceProvider::class, // Uncomment when you need database
 
     // Application providers
