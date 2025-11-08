@@ -198,24 +198,22 @@ if (!function_exists('retry')) {
      */
     function retry(int $times, callable $callback, int $sleepMilliseconds = 0): mixed
     {
-        $attempts = 0;
+        $lastException = null;
 
-        beginning:
-        $attempts++;
+        for ($attempts = 1; $attempts <= $times; $attempts++) {
+            try {
+                return $callback($attempts);
+            } catch (Throwable $e) {
+                $lastException = $e;
 
-        try {
-            return $callback($attempts);
-        } catch (Throwable $e) {
-            if ($attempts >= $times) {
-                throw $e;
+                if ($attempts < $times && $sleepMilliseconds > 0) {
+                    usleep($sleepMilliseconds * 1000);
+                }
             }
-
-            if ($sleepMilliseconds > 0) {
-                usleep($sleepMilliseconds * 1000);
-            }
-
-            goto beginning;
         }
+
+        // If we've exhausted all attempts, throw the last exception
+        throw $lastException;
     }
 }
 
