@@ -91,8 +91,8 @@ final class ScheduleServiceProvider extends ServiceProvider
                 echo "ALERT: Health check failed!\n";
             }
         })->everyMinutes(5)
-          ->when(fn() => date('H') >= 9 && date('H') < 18)
-          ->description('Application health check (business hours)');
+            ->when(fn() => date('H') >= 9 && date('H') < 18)
+            ->description('Application health check (business hours)');
 
         // Example 7: Backup database every Sunday at midnight
         $scheduler->exec('echo "Database backup would run here"')
@@ -103,9 +103,9 @@ final class ScheduleServiceProvider extends ServiceProvider
         $scheduler->call(function () {
             echo "Daily report generated\n";
         })->weekdays()
-          ->dailyAt('17:00')
-          ->timezone('Asia/Ho_Chi_Minh')
-          ->description('Generate daily report');
+            ->dailyAt('17:00')
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->description('Generate daily report');
 
         // Add your custom scheduled tasks here...
     }

@@ -17,129 +17,129 @@ use Toporia\Framework\Container\ContainerInterface;
  */
 final class Application
 {
-    /** @var array<string, class-string<Command>> */
-    private array $registry = [];
+  /** @var array<string, class-string<Command>> */
+  private array $registry = [];
 
-    private InputInterface $input;
-    private OutputInterface $output;
+  private InputInterface $input;
+  private OutputInterface $output;
 
-    public function __construct(
-        private readonly ContainerInterface $container
-    ) {
-        $this->output = new Output();
+  public function __construct(
+    private readonly ContainerInterface $container
+  ) {
+    $this->output = new Output();
+  }
+
+  /**
+   * Register a command class by its signature.
+   *
+   * @param class-string<Command> $commandClass
+   */
+  public function register(string $commandClass): void
+  {
+    /** @var Command $instance */
+    $instance = $this->container->get($commandClass);
+    $name = $instance->getName();
+    $this->registry[$name] = $commandClass;
+  }
+
+  /**
+   * Run the console application.
+   *
+   * @param array<int, string> $argv
+   */
+  public function run(array $argv): int
+  {
+    // Parse input
+    $this->input = Input::fromArgv($argv);
+
+    // Get command name
+    $commandName = $argv[1] ?? 'list';
+
+    // Handle built-in commands
+    if ($commandName === 'list') {
+      return $this->listCommands();
     }
 
-    /**
-     * Register a command class by its signature.
-     *
-     * @param class-string<Command> $commandClass
-     */
-    public function register(string $commandClass): void
-    {
-        /** @var Command $instance */
-        $instance = $this->container->get($commandClass);
-        $name = $instance->getName();
-        $this->registry[$name] = $commandClass;
+    // Find and execute command
+    if (!isset($this->registry[$commandName])) {
+      $this->output->error("Command not found: {$commandName}");
+      $this->output->writeln("Run 'list' to see available commands.");
+      return 1;
     }
 
-    /**
-     * Run the console application.
-     *
-     * @param array<int, string> $argv
-     */
-    public function run(array $argv): int
-    {
-        // Parse input
-        $this->input = Input::fromArgv($argv);
+    return $this->executeCommand($commandName);
+  }
 
-        // Get command name
-        $commandName = $argv[1] ?? 'list';
+  /**
+   * Execute a registered command
+   *
+   * @param string $commandName
+   * @return int
+   */
+  private function executeCommand(string $commandName): int
+  {
+    try {
+      /** @var Command $command */
+      $command = $this->container->get($this->registry[$commandName]);
 
-        // Handle built-in commands
-        if ($commandName === 'list') {
-            return $this->listCommands();
-        }
+      // Inject Input/Output
+      $command->setInput($this->input);
+      $command->setOutput($this->output);
 
-        // Find and execute command
-        if (!isset($this->registry[$commandName])) {
-            $this->output->error("Command not found: {$commandName}");
-            $this->output->writeln("Run 'list' to see available commands.");
-            return 1;
-        }
+      // Execute command
+      return $command->handle();
+    } catch (\Throwable $e) {
+      $this->output->error("Command failed: {$e->getMessage()}");
 
-        return $this->executeCommand($commandName);
+      if ($this->input->hasOption('verbose') || $this->input->hasOption('v')) {
+        $this->output->error($e->getTraceAsString());
+      }
+
+      return 1;
+    }
+  }
+
+  /**
+   * List all registered commands
+   *
+   * @return int
+   */
+  private function listCommands(): int
+  {
+    $this->output->writeln("Available commands:");
+    $this->output->newLine();
+
+    if (empty($this->registry)) {
+      $this->output->warning("No commands registered.");
+      return 0;
     }
 
-    /**
-     * Execute a registered command
-     *
-     * @param string $commandName
-     * @return int
-     */
-    private function executeCommand(string $commandName): int
-    {
-        try {
-            /** @var Command $command */
-            $command = $this->container->get($this->registry[$commandName]);
+    // Prepare table data
+    $headers = ['Command', 'Description'];
+    $rows = [];
 
-            // Inject Input/Output
-            $command->setInput($this->input);
-            $command->setOutput($this->output);
-
-            // Execute command
-            return $command->handle();
-        } catch (\Throwable $e) {
-            $this->output->error("Command failed: {$e->getMessage()}");
-
-            if ($this->input->hasOption('verbose') || $this->input->hasOption('v')) {
-                $this->output->error($e->getTraceAsString());
-            }
-
-            return 1;
-        }
+    foreach ($this->registry as $name => $class) {
+      /** @var Command $command */
+      $command = $this->container->get($class);
+      $rows[] = [$name, $command->getDescription()];
     }
 
-    /**
-     * List all registered commands
-     *
-     * @return int
-     */
-    private function listCommands(): int
-    {
-        $this->output->writeln("Available commands:");
-        $this->output->newLine();
+    $this->output->table($headers, $rows);
 
-        if (empty($this->registry)) {
-            $this->output->warning("No commands registered.");
-            return 0;
-        }
+    $this->output->newLine();
+    $this->output->info("Run 'php console [command] --help' for more information.");
 
-        // Prepare table data
-        $headers = ['Command', 'Description'];
-        $rows = [];
+    return 0;
+  }
 
-        foreach ($this->registry as $name => $class) {
-            /** @var Command $command */
-            $command = $this->container->get($class);
-            $rows[] = [$name, $command->getDescription()];
-        }
-
-        $this->output->table($headers, $rows);
-
-        $this->output->newLine();
-        $this->output->info("Run 'php console [command] --help' for more information.");
-
-        return 0;
-    }
-
-    /**
-     * Set custom output (for testing)
-     *
-     * @param OutputInterface $output
-     * @return void
-     */
-    public function setOutput(OutputInterface $output): void
-    {
-        $this->output = $output;
-    }
+  /**
+   * Set custom output (for testing)
+   *
+   * @param OutputInterface $output
+   * @return void
+   */
+  public function setOutput(OutputInterface $output): void
+  {
+    $this->output = $output;
+  }
 }
