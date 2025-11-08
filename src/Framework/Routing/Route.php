@@ -10,7 +10,7 @@ namespace Toporia\Framework\Routing;
 final class Route implements RouteInterface
 {
     /**
-     * @var array<string> Compiled route pattern.
+     * @var string|null Compiled route pattern (regex).
      */
     private ?string $compiledPattern = null;
 
