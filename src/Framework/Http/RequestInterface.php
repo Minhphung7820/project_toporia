@@ -70,4 +70,11 @@ interface RequestInterface
      * @return string
      */
     public function raw(): string;
+
+    /**
+     * Get the client IP address.
+     *
+     * @return string
+     */
+    public function ip(): string;
 }

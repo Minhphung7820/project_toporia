@@ -158,6 +158,44 @@ final class Request implements RequestInterface
     }
 
     /**
+     * Get client IP address.
+     *
+     * Checks common proxy headers for the real client IP.
+     * Falls back to REMOTE_ADDR if no proxy headers found.
+     *
+     * @return string Client IP address.
+     */
+    public function ip(): string
+    {
+        // Check proxy headers (in order of priority)
+        $proxyHeaders = [
+            'HTTP_CLIENT_IP',
+            'HTTP_X_FORWARDED_FOR',
+            'HTTP_X_FORWARDED',
+            'HTTP_X_CLUSTER_CLIENT_IP',
+            'HTTP_FORWARDED_FOR',
+            'HTTP_FORWARDED',
+        ];
+
+        foreach ($proxyHeaders as $header) {
+            if (!empty($_SERVER[$header])) {
+                // X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2...)
+                // Take the first one (the original client)
+                $ips = explode(',', $_SERVER[$header]);
+                $ip = trim($ips[0]);
+
+                // Validate IP
+                if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                    return $ip;
+                }
+            }
+        }
+
+        // Fallback to REMOTE_ADDR
+        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    }
+
+    /**
      * Extract headers from $_SERVER superglobal.
      *
      * @return array<string, string>
