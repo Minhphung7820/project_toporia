@@ -68,6 +68,10 @@ $app->registerProviders([
     EventServiceProvider::class,
     RoutingServiceProvider::class,
     \Toporia\Framework\Providers\AuthServiceProvider::class,  // Auth system
+    \Toporia\Framework\Providers\SecurityServiceProvider::class,  // Security (CSRF, Gates, Cookies)
+    \Toporia\Framework\Providers\CacheServiceProvider::class,     // Cache system
+    \Toporia\Framework\Providers\QueueServiceProvider::class,     // Queue system
+    \Toporia\Framework\Providers\ScheduleServiceProvider::class,  // Task scheduler
     // DatabaseServiceProvider::class, // Uncomment when you need database
 
     // Application providers
