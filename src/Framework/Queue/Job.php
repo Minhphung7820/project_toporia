@@ -16,10 +16,10 @@ namespace Toporia\Framework\Queue;
  */
 abstract class Job implements JobInterface
 {
-    private string $id;
-    private string $queue = 'default';
-    private int $attempts = 0;
-    private int $maxAttempts = 3;
+    protected string $id;
+    protected string $queue = 'default';
+    protected int $attempts = 0;
+    protected int $maxAttempts = 3;
 
     public function __construct()
     {
@@ -118,5 +118,81 @@ abstract class Job implements JobInterface
     {
         // This would be handled by the queue driver
         return $this;
+    }
+
+    /**
+     * Dispatch the job to the queue (Laravel-style static dispatch).
+     *
+     * Usage:
+     * ```php
+     * // Simple dispatch
+     * SendEmailJob::dispatch($to, $subject, $message);
+     *
+     * // With fluent API
+     * SendEmailJob::dispatch($to, $subject, $message)
+     *     ->onQueue('emails')
+     *     ->delay(60);
+     * ```
+     *
+     * Performance: O(1) - Creates job instance and returns PendingDispatch
+     * SOLID: Single Responsibility - each job knows how to dispatch itself
+     *
+     * @param mixed ...$args Constructor arguments
+     * @return PendingDispatch
+     */
+    public static function dispatch(...$args): PendingDispatch
+    {
+        if (!function_exists('app') || !app()->has('dispatcher')) {
+            throw new \RuntimeException('Job dispatcher not available in container. Register JobDispatcher in QueueServiceProvider.');
+        }
+
+        // Create job instance with constructor arguments
+        $job = new static(...$args);
+
+        // Return PendingDispatch for fluent API (auto-dispatches on destruct)
+        $dispatcher = app('dispatcher');
+        return new PendingDispatch($job, $dispatcher);
+    }
+
+    /**
+     * Dispatch the job synchronously (execute immediately).
+     *
+     * Usage:
+     * ```php
+     * $result = SendEmailJob::dispatchSync($to, $subject, $message);
+     * ```
+     *
+     * Performance: O(N) where N = job execution time (blocking)
+     *
+     * @param mixed ...$args Constructor arguments
+     * @return mixed Job result
+     */
+    public static function dispatchSync(...$args): mixed
+    {
+        if (!function_exists('app') || !app()->has('dispatcher')) {
+            throw new \RuntimeException('Job dispatcher not available in container.');
+        }
+
+        $job = new static(...$args);
+        return app('dispatcher')->dispatchSync($job);
+    }
+
+    /**
+     * Dispatch the job after a delay.
+     *
+     * Usage:
+     * ```php
+     * SendEmailJob::dispatchAfter(60, $to, $subject, $message); // 60 seconds delay
+     * ```
+     *
+     * Performance: O(1) - Queues job with delayed execution
+     *
+     * @param int $delay Delay in seconds
+     * @param mixed ...$args Constructor arguments
+     * @return PendingDispatch
+     */
+    public static function dispatchAfter(int $delay, ...$args): PendingDispatch
+    {
+        return static::dispatch(...$args)->delay($delay);
     }
 }

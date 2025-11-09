@@ -6,5 +6,6 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'fe1d4898277c26748a003292f432cd3b' => $vendorDir . '/jetbrains/phpstorm-stubs/PhpStormStubsMap.php',
     '060e481fc77a9df78894d6d90cb790e1' => $baseDir . '/src/Framework/Support/helpers.php',
 );

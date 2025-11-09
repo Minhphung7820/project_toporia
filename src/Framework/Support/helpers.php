@@ -440,3 +440,69 @@ if (!function_exists('view')) {
         return ob_get_clean();
     }
 }
+
+// =============================================================================
+// Queue & Job Dispatching Helper Functions
+// =============================================================================
+
+if (!function_exists('dispatch')) {
+    /**
+     * Dispatch a job to the queue (Laravel-style).
+     *
+     * **Auto-dispatch** when PendingDispatch is destroyed:
+     * ```php
+     * // Simple dispatch - NO ->dispatch() needed!
+     * dispatch(new SendEmailJob($to, $subject, $body));
+     * ```
+     *
+     * **Fluent API** for advanced config:
+     * ```php
+     * dispatch(new SendEmailJob(...))
+     *     ->onQueue('emails')
+     *     ->delay(60);  // Auto-dispatches with config when destroyed
+     * ```
+     *
+     * **Explicit dispatch** (optional, for clarity):
+     * ```php
+     * dispatch(new SendEmailJob(...))->dispatch(); // Works but redundant
+     * ```
+     *
+     * Performance: O(1) - Lightweight PendingDispatch with __destruct() auto-dispatch
+     *
+     * @param object $job Job instance
+     * @return \Toporia\Framework\Queue\PendingDispatch
+     * @throws RuntimeException if dispatcher not available
+     */
+    function dispatch(object $job): \Toporia\Framework\Queue\PendingDispatch
+    {
+        if (!function_exists('app') || !app()->has('dispatcher')) {
+            throw new RuntimeException('Job dispatcher not available in container. Register JobDispatcher in QueueServiceProvider.');
+        }
+
+        $dispatcher = app('dispatcher');
+        return new \Toporia\Framework\Queue\PendingDispatch($job, $dispatcher);
+    }
+}
+
+if (!function_exists('dispatch_sync')) {
+    /**
+     * Dispatch a job synchronously (execute immediately).
+     *
+     * Executes job immediately with dependency injection support.
+     * Useful for testing or when you need immediate results.
+     *
+     * Performance: O(1) + job execution time
+     *
+     * @param object $job Job instance
+     * @return mixed Job return value
+     * @throws RuntimeException if dispatcher not available
+     */
+    function dispatch_sync(object $job): mixed
+    {
+        if (!function_exists('app') || !app()->has('dispatcher')) {
+            throw new RuntimeException('Job dispatcher not available in container');
+        }
+
+        return app('dispatcher')->dispatchSync($job);
+    }
+}

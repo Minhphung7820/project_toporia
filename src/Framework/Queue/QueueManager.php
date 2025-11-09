@@ -55,7 +55,7 @@ final class QueueManager implements QueueManagerInterface
         $config = $this->config['connections'][$driver] ?? [];
 
         return match ($config['driver'] ?? $driver) {
-            'sync' => new SyncQueue(),
+            'sync' => $this->createSyncQueue(),
             'database' => $this->createDatabaseQueue($config),
             'redis' => RedisQueue::fromConfig($config),
             default => throw new \InvalidArgumentException("Unsupported queue driver: {$driver}"),
@@ -63,7 +63,21 @@ final class QueueManager implements QueueManagerInterface
     }
 
     /**
-     * Create database queue instance
+     * Create sync queue instance with container injection.
+     *
+     * @return SyncQueue
+     */
+    private function createSyncQueue(): SyncQueue
+    {
+        if (!$this->container) {
+            throw new \InvalidArgumentException('Container is required for SyncQueue dependency injection');
+        }
+
+        return new SyncQueue($this->container);
+    }
+
+    /**
+     * Create database queue instance with container injection.
      *
      * @param array $config
      * @return DatabaseQueue
@@ -79,7 +93,8 @@ final class QueueManager implements QueueManagerInterface
             throw new \InvalidArgumentException('Database queue requires connection');
         }
 
-        return new DatabaseQueue($connection);
+        // Inject container for dependency injection support
+        return new DatabaseQueue($connection, $this->container);
     }
 
     /**

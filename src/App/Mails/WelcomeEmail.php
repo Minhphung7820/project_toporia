@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Mail;
+namespace App\Mails;
 
 use Toporia\Framework\Mail\Mailable;
 

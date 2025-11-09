@@ -48,6 +48,7 @@ return [
 
         'log' => [
             'transport' => 'log',
+            'path' => __DIR__ . '/../storage/logs/mail.log',
             'channel' => env('MAIL_LOG_CHANNEL', 'mail'),
         ],
 

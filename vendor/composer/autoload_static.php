@@ -7,6 +7,7 @@ namespace Composer\Autoload;
 class ComposerStaticInitcf6b1ac2e2deebf5f097dbc7e3118934
 {
     public static $files = array (
+        'fe1d4898277c26748a003292f432cd3b' => __DIR__ . '/..' . '/jetbrains/phpstorm-stubs/PhpStormStubsMap.php',
         '060e481fc77a9df78894d6d90cb790e1' => __DIR__ . '/../..' . '/src/Framework/Support/helpers.php',
     );
 
@@ -14,6 +15,10 @@ class ComposerStaticInitcf6b1ac2e2deebf5f097dbc7e3118934
         'T' => 
         array (
             'Toporia\\Framework\\' => 18,
+        ),
+        'P' => 
+        array (
+            'PHPMailer\\PHPMailer\\' => 20,
         ),
         'A' => 
         array (
@@ -25,6 +30,10 @@ class ComposerStaticInitcf6b1ac2e2deebf5f097dbc7e3118934
         'Toporia\\Framework\\' => 
         array (
             0 => __DIR__ . '/../..' . '/src/Framework',
+        ),
+        'PHPMailer\\PHPMailer\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
         ),
         'App\\' => 
         array (

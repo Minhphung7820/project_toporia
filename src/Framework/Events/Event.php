@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Toporia\Framework\Events;
 
+use Toporia\Framework\Events\Contracts\EventInterface;
+
 /**
  * Base event implementation.
  *

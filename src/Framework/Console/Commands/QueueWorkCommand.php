@@ -37,7 +37,7 @@ final class QueueWorkCommand extends Command
         // Parse options
         $queueName = $this->option('queue', 'default');
         $maxJobs = (int) $this->option('max-jobs', 0); // 0 = unlimited
-        $sleep = (int) $this->option('sleep', 3);
+        $sleep = (int) $this->option('sleep', 1);
         $stopWhenEmpty = $this->hasOption('stop-when-empty');
 
         // Get queue instance

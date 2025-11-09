@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Toporia\Framework\Events;
+namespace Toporia\Framework\Events\Contracts;
 
 /**
  * Event object interface.

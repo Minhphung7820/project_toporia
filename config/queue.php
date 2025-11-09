@@ -16,8 +16,13 @@ return [
     |
     | The default queue connection that should be used by the framework.
     |
+    | Options:
+    | - 'sync' = Execute immediately (development, testing)
+    | - 'database' = Store in database (production, requires worker)
+    | - 'redis' = Use Redis (high performance, requires Redis server)
+    |
     */
-    'default' => env('QUEUE_CONNECTION', 'sync'),
+    'default' => env('QUEUE_CONNECTION', 'database'),
 
     /*
     |--------------------------------------------------------------------------

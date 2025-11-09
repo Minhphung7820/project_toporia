@@ -4,14 +4,33 @@ declare(strict_types=1);
 
 namespace Toporia\Framework\Queue;
 
+use Toporia\Framework\Container\ContainerInterface;
+
 /**
  * Synchronous Queue Driver
  *
  * Executes jobs immediately without queueing.
  * Useful for testing and development.
+ *
+ * Performance Optimizations:
+ * - Uses container for dependency injection (no manual wiring)
+ * - Zero storage overhead (executes immediately)
+ * - Minimal memory footprint
+ *
+ * SOLID Principles:
+ * - Single Responsibility: Only executes jobs synchronously
+ * - Dependency Inversion: Depends on ContainerInterface
+ * - Open/Closed: Extend via custom job types
+ *
+ * @package Toporia\Framework\Queue
  */
 final class SyncQueue implements QueueInterface
 {
+    public function __construct(
+        private readonly ContainerInterface $container
+    ) {
+    }
+
     public function push(JobInterface $job, string $queue = 'default'): string
     {
         $this->executeJob($job);
@@ -41,7 +60,10 @@ final class SyncQueue implements QueueInterface
     }
 
     /**
-     * Execute a job
+     * Execute a job with dependency injection.
+     *
+     * Performance: O(1) for job execution + O(D) for DI resolution
+     * where D = number of dependencies.
      *
      * @param JobInterface $job
      * @return void
@@ -49,7 +71,9 @@ final class SyncQueue implements QueueInterface
     private function executeJob(JobInterface $job): void
     {
         try {
-            $job->handle();
+            // Use container to call handle() with auto-injected dependencies
+            // This resolves MailerInterface and other dependencies automatically
+            $this->container->call([$job, 'handle']);
         } catch (\Throwable $e) {
             $job->failed($e);
             throw $e;

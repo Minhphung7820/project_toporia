@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Toporia\Framework\Queue;
 
 use Toporia\Framework\Container\ContainerInterface;
+use Toporia\Framework\Support\ColoredLogger;
 
 /**
  * Queue Worker
@@ -16,13 +17,19 @@ final class Worker
 {
     private bool $shouldQuit = false;
     private int $processed = 0;
+    private ColoredLogger $logger;
 
     public function __construct(
         private QueueInterface $queue,
         private ?ContainerInterface $container = null,
         private int $maxJobs = 0,
-        private int $sleep = 3
-    ) {}
+        private int $sleep = 1,
+        ?string $timezone = null
+    ) {
+        // Get timezone from config or use default
+        $timezone = $timezone ?? $this->getTimezone();
+        $this->logger = new ColoredLogger($timezone);
+    }
 
     /**
      * Start processing jobs from the queue
@@ -32,13 +39,13 @@ final class Worker
      */
     public function work(string $queue = 'default'): void
     {
-        echo "Queue worker started. Listening on queue: {$queue}\n";
+        $this->logger->info("Queue worker started. Listening on queue: {$queue}");
 
         while (!$this->shouldQuit) {
             $job = $this->queue->pop($queue);
 
             if ($job === null) {
-                // No job available, sleep
+                // No job available, sleep (don't spam logs)
                 $this->sleep();
                 continue;
             }
@@ -48,12 +55,12 @@ final class Worker
 
             // Check if we've hit max jobs limit
             if ($this->maxJobs > 0 && $this->processed >= $this->maxJobs) {
-                echo "Max jobs limit reached. Stopping worker.\n";
+                $this->logger->warning("Max jobs limit reached. Stopping worker.");
                 break;
             }
         }
 
-        echo "Queue worker stopped. Processed {$this->processed} jobs.\n";
+        $this->logger->info("Queue worker stopped. Processed {$this->processed} jobs.");
     }
 
     /**
@@ -65,7 +72,7 @@ final class Worker
     private function processJob(JobInterface $job): void
     {
         try {
-            echo "Processing job: {$job->getId()}\n";
+            $this->logger->info("Processing job: {$job->getId()}");
 
             $job->incrementAttempts();
 
@@ -76,16 +83,16 @@ final class Worker
                 $job->handle();
             }
 
-            echo "Job completed: {$job->getId()}\n";
+            $this->logger->success("Job completed: {$job->getId()}");
         } catch (\Throwable $e) {
-            echo "Job failed: {$job->getId()} - {$e->getMessage()}\n";
+            $this->logger->error("Job failed: {$job->getId()} - {$e->getMessage()}");
 
             // Check if we should retry
             if ($job->attempts() < $job->getMaxAttempts()) {
-                echo "Retrying job: {$job->getId()} (attempt {$job->attempts()})\n";
+                $this->logger->warning("Retrying job: {$job->getId()} (attempt {$job->attempts()})");
                 $this->queue->push($job, $job->getQueue());
             } else {
-                echo "Job exceeded max attempts: {$job->getId()}\n";
+                $this->logger->error("Job exceeded max attempts: {$job->getId()}");
                 $job->failed($e);
 
                 // Store in failed jobs table if using DatabaseQueue
@@ -113,8 +120,23 @@ final class Worker
      */
     public function stop(): void
     {
-        echo "Stopping worker...\n";
+        $this->logger->warning("Stopping worker...");
         $this->shouldQuit = true;
+    }
+
+    /**
+     * Get timezone from config or container
+     *
+     * @return string
+     */
+    private function getTimezone(): string
+    {
+        if ($this->container && $this->container->has('config')) {
+            $config = $this->container->get('config');
+            return $config->get('app.timezone', 'UTC');
+        }
+
+        return 'UTC';
     }
 
     /**

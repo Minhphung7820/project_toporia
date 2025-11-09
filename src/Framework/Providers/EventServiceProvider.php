@@ -6,7 +6,7 @@ namespace Toporia\Framework\Providers;
 
 use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Events\Dispatcher;
-use Toporia\Framework\Events\EventDispatcherInterface;
+use Toporia\Framework\Events\Contracts\EventDispatcherInterface;
 use Toporia\Framework\Foundation\ServiceProvider;
 
 /**

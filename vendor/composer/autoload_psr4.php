@@ -7,5 +7,6 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Toporia\\Framework\\' => array($baseDir . '/src/Framework'),
+    'PHPMailer\\PHPMailer\\' => array($vendorDir . '/phpmailer/phpmailer/src'),
     'App\\' => array($baseDir . '/src/App'),
 );
