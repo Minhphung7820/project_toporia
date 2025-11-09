@@ -54,7 +54,8 @@ final class HomeController extends BaseController
             })
             ->withCount(['childrens' => function ($q) {
                 $q->where('is_active', 1);
-            }])
+            }])->withSum('childrens', 'price')
+            ->withSum('childrens', 'stock')
             ->paginate(12);
 
         return $this->response->json([

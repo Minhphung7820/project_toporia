@@ -316,18 +316,28 @@ class ModelQueryBuilder extends QueryBuilder
     /**
      * Add a subselect sum of a relationship column to the query.
      *
+     * Supports callbacks for filtering:
+     * - withSum('orders', 'total') - sum all
+     * - withSum('orders', 'total', fn($q) => $q->where('status', 'completed')) - sum with constraints
+     *
      * @param string $relation Relationship name
      * @param string $column Column to sum
+     * @param callable|null $callback Optional callback to constrain the sum
      * @return $this
      *
      * @example
      * // Get users with total order amount
      * $users = UserModel::withSum('orders', 'total')->get();
      * // Access: $user->orders_sum_total
+     *
+     * // Sum only completed orders
+     * $users = UserModel::withSum('orders', 'total', function($q) {
+     *     $q->where('status', 'completed');
+     * })->get();
      */
-    public function withSum(string $relation, string $column): self
+    public function withSum(string $relation, string $column, ?callable $callback = null): self
     {
-        return $this->addRelationAggregateSelect($relation, $column, 'SUM');
+        return $this->addRelationAggregateSelect($relation, $column, 'SUM', $callback);
     }
 
     /**
@@ -335,11 +345,21 @@ class ModelQueryBuilder extends QueryBuilder
      *
      * @param string $relation Relationship name
      * @param string $column Column to average
+     * @param callable|null $callback Optional callback to constrain the average
      * @return $this
+     *
+     * @example
+     * // Average rating of all reviews
+     * $products = ProductModel::withAvg('reviews', 'rating')->get();
+     *
+     * // Average rating of verified reviews only
+     * $products = ProductModel::withAvg('reviews', 'rating', function($q) {
+     *     $q->where('verified', true);
+     * })->get();
      */
-    public function withAvg(string $relation, string $column): self
+    public function withAvg(string $relation, string $column, ?callable $callback = null): self
     {
-        return $this->addRelationAggregateSelect($relation, $column, 'AVG');
+        return $this->addRelationAggregateSelect($relation, $column, 'AVG', $callback);
     }
 
     /**
@@ -347,11 +367,12 @@ class ModelQueryBuilder extends QueryBuilder
      *
      * @param string $relation Relationship name
      * @param string $column Column to find minimum
+     * @param callable|null $callback Optional callback to constrain
      * @return $this
      */
-    public function withMin(string $relation, string $column): self
+    public function withMin(string $relation, string $column, ?callable $callback = null): self
     {
-        return $this->addRelationAggregateSelect($relation, $column, 'MIN');
+        return $this->addRelationAggregateSelect($relation, $column, 'MIN', $callback);
     }
 
     /**
@@ -359,11 +380,12 @@ class ModelQueryBuilder extends QueryBuilder
      *
      * @param string $relation Relationship name
      * @param string $column Column to find maximum
+     * @param callable|null $callback Optional callback to constrain
      * @return $this
      */
-    public function withMax(string $relation, string $column): self
+    public function withMax(string $relation, string $column, ?callable $callback = null): self
     {
-        return $this->addRelationAggregateSelect($relation, $column, 'MAX');
+        return $this->addRelationAggregateSelect($relation, $column, 'MAX', $callback);
     }
 
     // =========================================================================
