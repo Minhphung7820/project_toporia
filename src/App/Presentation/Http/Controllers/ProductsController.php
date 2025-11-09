@@ -1,9 +1,12 @@
 <?php
+
 namespace App\Presentation\Http\Controllers;
 
 use App\Application\Product\CreateProduct\CreateProductCommand;
 use App\Application\Product\CreateProduct\CreateProductHandler;
+use App\Domain\Product\ProductModel;
 use App\Infrastructure\Persistence\InMemoryProductRepository;
+use Toporia\Framework\Http\Request;
 
 final class ProductsController extends BaseController
 {
@@ -26,8 +29,10 @@ final class ProductsController extends BaseController
         $this->response->json(['message' => 'created', 'data' => ['id' => $product->id, 'title' => $product->title]], 201);
     }
 
-    public function show(string $id): string
+    public function show(Request $request, ProductModel $product, string $id)
     {
-        return '<h1>Product #' . htmlspecialchars($id, ENT_QUOTES, 'UTF-8') . '</h1>';
+        dd();
+        $product = ProductModel::findOrFail($id);
+        return response()->json($product);
     }
 }

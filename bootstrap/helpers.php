@@ -230,3 +230,49 @@ if (!function_exists('http')) {
         return $manager->client($client);
     }
 }
+
+if (!function_exists('dd')) {
+    /**
+     * Dump the given variables and end the script (Laravel-style).
+     *
+     * @param mixed ...$vars Variables to dump
+     * @return never
+     */
+    function dd(mixed ...$vars): never
+    {
+        http_response_code(500);
+
+        foreach ($vars as $var) {
+            dump($var);
+        }
+
+        exit(1);
+    }
+}
+
+if (!function_exists('dump')) {
+    /**
+     * Dump the given variable (Laravel-style).
+     *
+     * @param mixed $var Variable to dump
+     * @return mixed Returns the dumped variable for chaining
+     */
+    function dump(mixed $var): mixed
+    {
+        echo '<pre style="background: #18171B; color: #FF8C00; padding: 10px; border-radius: 5px; margin: 10px 0; font-family: monospace; font-size: 14px; line-height: 1.5; overflow: auto; max-height: 600px;">';
+
+        // Check if it's a CLI environment
+        if (php_sapi_name() === 'cli') {
+            echo "\n";
+            var_dump($var);
+            echo "\n";
+        } else {
+            // Web environment - use fancy output
+            echo htmlspecialchars(var_export($var, true), ENT_QUOTES, 'UTF-8');
+        }
+
+        echo '</pre>';
+
+        return $var;
+    }
+}
