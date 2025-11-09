@@ -56,6 +56,7 @@ class ProductModel extends Model
         'description',
         'price',
         'stock',
+        'parent_id',
         'is_active'
     ];
 
@@ -67,6 +68,28 @@ class ProductModel extends Model
         'stock' => 'int',
         'is_active' => 'bool'
     ];
+
+    /**
+     * Attributes to hide from array/JSON output.
+     *
+     * Example: Hide internal tracking fields from API responses
+     * Uncomment to hide timestamps:
+     *
+     * protected static array $hidden = ['created_at', 'updated_at'];
+     */
+    // protected static array $hidden = [];
+
+    /**
+     * Computed attributes to append to array/JSON output.
+     *
+     * These will automatically call the corresponding accessor methods.
+     *
+     * Examples:
+     * - 'formatted_price': Shows price with currency symbol
+     * - 'stock_status': Human-readable stock status
+     * - 'availability': Computed availability message
+     */
+    protected static array $appends = ['formatted_price', 'stock_status'];
 
     /**
      * Hook: Called before creating.
@@ -170,5 +193,67 @@ class ProductModel extends Model
         return static::query()
             ->where('stock', '<=', $threshold)
             ->where('is_active', true);
+    }
+
+    /**
+     * Relationship: Product can have many child products (variants, etc.).
+     *
+     * @return \Toporia\Framework\Database\ORM\Relations\HasMany
+     */
+    public function childrens()
+    {
+        return $this->hasMany(ProductModel::class, 'parent_id', 'id');
+    }
+
+    // =========================================================================
+    // COMPUTED ATTRIBUTES (Accessors)
+    // =========================================================================
+
+    /**
+     * Accessor: Get formatted price with currency symbol.
+     *
+     * This is a computed attribute defined in $appends.
+     * Usage: $product->formatted_price or included in toArray()/toJson()
+     *
+     * SOLID Principles:
+     * - Single Responsibility: Only formats price, doesn't modify data
+     * - Open/Closed: Add new formats without modifying existing code
+     * - Dependency Inversion: Currency symbol could come from config
+     *
+     * @return string|null Formatted price (e.g., "$99.99") or null if price not loaded
+     */
+    public function getFormattedPriceAttribute(): ?string
+    {
+        if ($this->price === null) {
+            return null;
+        }
+
+        // TODO: Get currency from config or user preferences
+        $currency = '$';
+        return $currency . number_format($this->price, 2);
+    }
+
+    /**
+     * Accessor: Get human-readable stock status.
+     *
+     * This is a computed attribute defined in $appends.
+     *
+     * @return string|null Stock status message or null if stock not loaded
+     */
+    public function getStockStatusAttribute(): ?string
+    {
+        if ($this->stock === null) {
+            return null;
+        }
+
+        if ($this->stock === 0) {
+            return 'Out of Stock';
+        } elseif ($this->stock <= 5) {
+            return 'Low Stock';
+        } elseif ($this->stock <= 20) {
+            return 'In Stock';
+        } else {
+            return 'Well Stocked';
+        }
     }
 }

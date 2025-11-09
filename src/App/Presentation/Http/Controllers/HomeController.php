@@ -13,7 +13,7 @@ final class HomeController extends BaseController
     public function index()
     {
         // Option 1: Use default connection
-        $products = DB::connection('default')->table('products')->paginate(12);
+        $products =  ProductModel::with(['childrens:id,title,parent_id'])->paginate(12);
 
         // Option 2: Use specific connection (switch to different database)
         // $products = DB::connection('mysql')->table('products')->get();

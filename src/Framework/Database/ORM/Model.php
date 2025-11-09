@@ -60,11 +60,20 @@ abstract class Model implements ModelInterface
 
     /**
      * Blacklist of attributes that cannot be mass-assigned.
-     * If ['*'] is present, mass-assignment is globally disabled unless listed in $fillable.
+     *
+     * Behavior (Laravel-compatible):
+     * - Empty array (default): Allow all fields when $fillable is also empty (auto-fillable)
+     * - ['field1', 'field2']: Block specific fields (blacklist approach)
+     * - ['*']: Disable mass assignment entirely (require explicit $fillable)
+     *
+     * SOLID Principles:
+     * - Convention over Configuration: Default to permissive (empty array)
+     * - Security: Models can opt-in to strict mode by setting $guarded = ['*']
+     * - Open/Closed: Each model can customize without modifying base class
      *
      * @var array<string>
      */
-    protected static array $guarded = ['*'];
+    protected static array $guarded = [];
 
     /**
      * Attribute casting map. Example: ['is_active' => 'bool'].
@@ -73,6 +82,57 @@ abstract class Model implements ModelInterface
      * @var array<string, string>
      */
     protected static array $casts = [];
+
+    /**
+     * Attributes that should be hidden from array/JSON representation.
+     *
+     * Use this to hide sensitive data (passwords, tokens, etc.) from API responses.
+     *
+     * Example:
+     * protected static array $hidden = ['password', 'remember_token'];
+     *
+     * SOLID Principles:
+     * - Single Responsibility: Model defines its own serialization rules
+     * - Open/Closed: Can be overridden per model without changing base class
+     * - Information Hiding: Prevents accidental exposure of sensitive data
+     *
+     * @var array<string>
+     */
+    protected static array $hidden = [];
+
+    /**
+     * Attributes that should be visible in array/JSON representation.
+     *
+     * When set, ONLY these attributes will be included (whitelist approach).
+     * Takes precedence over $hidden.
+     *
+     * Example:
+     * protected static array $visible = ['id', 'name', 'email'];
+     *
+     * @var array<string>
+     */
+    protected static array $visible = [];
+
+    /**
+     * Computed attributes to append to array/JSON representation.
+     *
+     * These are accessor methods that will be automatically called and included.
+     *
+     * Example:
+     * protected static array $appends = ['full_name', 'is_admin'];
+     *
+     * Then define accessor methods:
+     * public function getFullNameAttribute(): string {
+     *     return $this->first_name . ' ' . $this->last_name;
+     * }
+     *
+     * SOLID Principles:
+     * - Open/Closed: Extend model behavior without modifying serialization logic
+     * - Single Responsibility: Computed logic in separate methods
+     *
+     * @var array<string>
+     */
+    protected static array $appends = [];
 
     /**
      * Connection name to use for this model.
@@ -196,19 +256,114 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Create a new QueryBuilder scoped to this model's table.
+     * Create a new ModelQueryBuilder scoped to this model's table.
+     *
+     * Returns ModelQueryBuilder which extends QueryBuilder with:
+     * - Automatic hydration of rows into model instances
+     * - Eager loading of relationships via with()
+     * - Returns ModelCollection instead of RowCollection
+     *
+     * @return ModelQueryBuilder
      */
-    public static function query(): QueryBuilder
+    public static function query(): ModelQueryBuilder
     {
-        return (new QueryBuilder(static::getConnection()))->table(static::getTableName());
+        return (new ModelQueryBuilder(static::getConnection(), static::class))->table(static::getTableName());
     }
 
     /**
      * Get the table name.
+     *
+     * Auto-infers table name from class name if not explicitly set:
+     * - ProductModel -> products
+     * - UserModel -> users
+     * - OrderItem -> order_items
+     *
+     * SOLID Principles:
+     * - Convention over Configuration: Reduces boilerplate code
+     * - Open/Closed: Can override $table in child classes
+     * - Single Responsibility: Only handles table name resolution
+     *
+     * @return string Table name
      */
     public static function getTableName(): string
     {
-        return static::$table;
+        // If explicitly set, use it
+        if (isset(static::$table) && static::$table !== '') {
+            return static::$table;
+        }
+
+        // Auto-infer from class name
+        // Extract class name without namespace
+        $className = (new \ReflectionClass(static::class))->getShortName();
+
+        // Remove "Model" suffix if present
+        // ProductModel -> Product
+        $baseName = preg_replace('/Model$/', '', $className);
+
+        // Convert to snake_case and pluralize
+        // Product -> product -> products
+        // OrderItem -> order_item -> order_items
+        return static::pluralize(static::toSnakeCase($baseName));
+    }
+
+    /**
+     * Convert string to snake_case.
+     *
+     * Examples:
+     * - ProductModel -> product_model
+     * - OrderItem -> order_item
+     * - HTTPRequest -> h_t_t_p_request
+     *
+     * @param string $value String to convert
+     * @return string Snake-cased string
+     */
+    protected static function toSnakeCase(string $value): string
+    {
+        // Insert underscore before uppercase letters (except first char)
+        $value = preg_replace('/(?<!^)[A-Z]/', '_$0', $value);
+
+        // Convert to lowercase
+        return strtolower($value);
+    }
+
+    /**
+     * Pluralize a word (simple English pluralization).
+     *
+     * This is a simplified version. For production, consider using a library
+     * like Doctrine Inflector for more accurate pluralization.
+     *
+     * SOLID Principles:
+     * - Open/Closed: Can be overridden for custom pluralization rules
+     * - Single Responsibility: Only handles pluralization logic
+     *
+     * @param string $word Word to pluralize
+     * @return string Pluralized word
+     */
+    protected static function pluralize(string $word): string
+    {
+        // Simple pluralization rules
+        $irregulars = [
+            'person' => 'people',
+            'man' => 'men',
+            'woman' => 'women',
+            'child' => 'children',
+            'tooth' => 'teeth',
+            'foot' => 'feet',
+        ];
+
+        // Check irregular forms
+        if (isset($irregulars[$word])) {
+            return $irregulars[$word];
+        }
+
+        // Apply standard rules
+        if (preg_match('/(s|x|z|ch|sh)$/', $word)) {
+            return $word . 'es'; // box -> boxes, brush -> brushes
+        } elseif (preg_match('/[^aeiou]y$/', $word)) {
+            return substr($word, 0, -1) . 'ies'; // country -> countries
+        } else {
+            return $word . 's'; // product -> products
+        }
     }
 
     /**
@@ -482,17 +637,41 @@ abstract class Model implements ModelInterface
 
     /**
      * Check whether a key can be mass-assigned.
+     *
+     * Mass Assignment Rules (Laravel-compatible):
+     * 1. If $fillable is NOT empty: ONLY allow fields in $fillable (whitelist)
+     * 2. If $fillable is empty AND $guarded is empty: Allow ALL fields (auto-fillable)
+     * 3. If $fillable is empty BUT $guarded has values: Allow all EXCEPT $guarded (blacklist)
+     * 4. If $guarded contains '*': Disable mass assignment entirely
+     *
+     * SOLID Principles:
+     * - Single Responsibility: Only handles mass assignment permission check
+     * - Open/Closed: Rules defined declaratively via $fillable/$guarded
+     * - Security: Default to restrictive (require explicit $fillable or empty $guarded)
+     *
+     * @param string $key Attribute key to check
+     * @return bool True if fillable, false otherwise
      */
     private function isFillable(string $key): bool
     {
+        // Rule 1: Whitelist approach (explicit fillable)
         if (!empty(static::$fillable)) {
             return in_array($key, static::$fillable, true);
         }
 
+        // Rule 4: Global guard (disable mass assignment)
         if (in_array('*', static::$guarded, true)) {
             return false;
         }
 
+        // Rule 2 & 3: When $fillable is empty
+        // If $guarded is also empty -> allow all (auto-fillable)
+        // If $guarded has values -> blacklist approach
+        if (empty(static::$guarded)) {
+            return true; // Auto-fillable: accept all fields
+        }
+
+        // Blacklist: allow all except $guarded
         return !in_array($key, static::$guarded, true);
     }
 
@@ -612,11 +791,107 @@ abstract class Model implements ModelInterface
     /**
      * Convert the model to an array of raw attributes.
      *
+     * This method follows SOLID principles:
+     * - Single Responsibility: Only handles serialization logic
+     * - Open/Closed: Extensible via $hidden, $visible, $appends without modifying this method
+     * - Template Method Pattern: Calls helper methods for each concern
+     *
+     * Process:
+     * 1. Start with all attributes
+     * 2. Add loaded relationships
+     * 3. Add appended computed attributes
+     * 4. Filter by visible/hidden rules
+     *
      * @return array<string,mixed>
      */
     public function toArray(): array
     {
-        return $this->attributes;
+        // Step 1: Start with base attributes
+        $array = $this->attributes;
+
+        // Step 2: Include loaded relationships
+        foreach ($this->relations as $name => $relation) {
+            if ($relation instanceof ModelCollection) {
+                // HasMany relationship - convert collection to array of arrays
+                $array[$name] = $relation->toArray();
+            } elseif ($relation instanceof Model) {
+                // HasOne/BelongsTo relationship - convert model to array
+                $array[$name] = $relation->toArray();
+            } elseif ($relation === null) {
+                // Relationship exists but is null (e.g., optional BelongsTo)
+                $array[$name] = null;
+            } else {
+                // Fallback for other types
+                $array[$name] = $relation;
+            }
+        }
+
+        // Step 3: Append computed attributes
+        $array = $this->addAppendedAttributes($array);
+
+        // Step 4: Apply visibility rules (hidden/visible)
+        $array = $this->filterVisibleAttributes($array);
+
+        return $array;
+    }
+
+    /**
+     * Add appended computed attributes to the array.
+     *
+     * Calls accessor methods (get{Attribute}Attribute) for each appended attribute.
+     *
+     * SOLID Principles:
+     * - Single Responsibility: Only handles appending computed attributes
+     * - Open/Closed: New computed attributes added via $appends, no code changes needed
+     *
+     * @param array<string,mixed> $array Base array
+     * @return array<string,mixed> Array with appended attributes
+     */
+    protected function addAppendedAttributes(array $array): array
+    {
+        foreach (static::$appends as $attribute) {
+            // Convert snake_case to StudlyCase for method name
+            // e.g., 'full_name' -> 'getFullNameAttribute'
+            $method = 'get' . str_replace('_', '', ucwords($attribute, '_')) . 'Attribute';
+
+            if (method_exists($this, $method)) {
+                $array[$attribute] = $this->$method();
+            }
+        }
+
+        return $array;
+    }
+
+    /**
+     * Filter attributes based on $visible and $hidden rules.
+     *
+     * Rules (in order of precedence):
+     * 1. If $visible is set: ONLY include those attributes (whitelist)
+     * 2. If $hidden is set: EXCLUDE those attributes (blacklist)
+     * 3. Otherwise: include all attributes
+     *
+     * SOLID Principles:
+     * - Single Responsibility: Only handles attribute filtering
+     * - Open/Closed: Filtering rules defined declaratively via properties
+     * - Security by Default: Easy to prevent sensitive data exposure
+     *
+     * @param array<string,mixed> $array Unfiltered array
+     * @return array<string,mixed> Filtered array
+     */
+    protected function filterVisibleAttributes(array $array): array
+    {
+        // Rule 1: Whitelist approach (takes precedence)
+        if (!empty(static::$visible)) {
+            return array_intersect_key($array, array_flip(static::$visible));
+        }
+
+        // Rule 2: Blacklist approach
+        if (!empty(static::$hidden)) {
+            return array_diff_key($array, array_flip(static::$hidden));
+        }
+
+        // Rule 3: No filtering (show all)
+        return $array;
     }
 
     /**
@@ -718,22 +993,16 @@ abstract class Model implements ModelInterface
     /**
      * Execute the current query and return a typed ModelCollection.
      *
-     * Compatible with both RowCollection and plain array results from QueryBuilder::get().
+     * This method delegates to ModelQueryBuilder::getModels() which:
+     * 1. Gets raw rows from database
+     * 2. Converts rows to model instances via hydrate()
+     * 3. Loads eager relationships if configured via with()
      *
      * @return ModelCollection<static>
      */
     public static function get(): ModelCollection
     {
-        $qb = static::query();
-        $result = $qb->get(); // RowCollection|array
-
-        if ($result instanceof RowCollection) {
-            /** @var RowCollection $result */
-            return static::hydrate($result->all());
-        }
-
-        /** @var array<int, array<string,mixed>> $result */
-        return static::hydrate($result);
+        return static::query()->getModels();
     }
 
     /**
@@ -906,14 +1175,170 @@ abstract class Model implements ModelInterface
     /**
      * Static eager loading for query results.
      *
-     * @param array<string> $relations Relationship names
-     * @return QueryBuilder
+     * Supports multiple formats (Laravel-compatible):
+     * 1. String: with('childrens')
+     * 2. Array: with(['childrens', 'category'])
+     * 3. Array with column selection: with(['childrens:id,title', 'category:id,name'])
+     * 4. Mixed varargs: with('childrens', 'category')
+     *
+     * SOLID Principles:
+     * - Open/Closed: Flexible input formats without changing core logic
+     * - Single Responsibility: Only handles relationship registration
+     * - Interface Segregation: Supports both simple and advanced use cases
+     *
+     * @param string|array<string>|string[] $relations Relationship name(s)
+     * @return ModelQueryBuilder
+     *
+     * @example
+     * // Single relationship
+     * Product::with('childrens')->get()
+     *
+     * // Multiple relationships
+     * Product::with(['childrens', 'category'])->get()
+     *
+     * // With column selection (optimize queries)
+     * Product::with(['childrens:id,title,parent_id'])->get()
+     *
+     * // Varargs style
+     * Product::with('childrens', 'category')->get()
      */
-    public static function with(array $relations): QueryBuilder
+    public static function with(string|array ...$relations): ModelQueryBuilder
     {
+        // Normalize input to array
+        // Support: with('rel1', 'rel2') OR with(['rel1', 'rel2'])
+        $normalized = [];
+
+        foreach ($relations as $relation) {
+            if (is_array($relation)) {
+                // Array format: ['childrens', 'category']
+                $normalized = array_merge($normalized, $relation);
+            } else {
+                // String format: 'childrens'
+                $normalized[] = $relation;
+            }
+        }
+
         $query = static::query();
-        $query->setEagerLoad($relations);
+        $query->setEagerLoad($normalized);
         return $query;
+    }
+
+    /**
+     * Eager load relationships for a collection of models.
+     *
+     * This method loads relationships for all models in the collection efficiently:
+     * 1. Parse relationship syntax (with optional column selection)
+     * 2. For each relationship, call the relation method on a model instance
+     * 3. Apply column selection if specified
+     * 4. Use addEagerConstraints() to load related models in bulk
+     * 5. Use match() to associate related models with parent models
+     *
+     * Supports Laravel-style column selection:
+     * - 'childrens' -> Load all columns
+     * - 'childrens:id,title' -> Load only id and title columns
+     *
+     * SOLID Principles:
+     * - Single Responsibility: Only handles eager loading logic
+     * - Open/Closed: Column selection added without modifying relation classes
+     *
+     * @param ModelCollection<static> $models Collection of models to load relationships for
+     * @param array<string> $relations Relationship names to load (may include :columns syntax)
+     * @return void
+     */
+    public static function eagerLoadRelations(ModelCollection $models, array $relations): void
+    {
+        foreach ($relations as $relationSpec) {
+            // Parse relationship:columns syntax
+            [$name, $columns] = static::parseRelationSpec($relationSpec);
+
+            // Get a model instance to build the relation
+            $model = $models->first();
+            if ($model === null) {
+                continue;
+            }
+
+            // Check if relation method exists
+            if (!method_exists($model, $name)) {
+                continue;
+            }
+
+            // Get the relation instance
+            $relation = $model->$name();
+
+            // Check if it's actually a relation
+            if (!$relation instanceof Relations\RelationInterface) {
+                continue;
+            }
+
+            // Apply column selection if specified
+            if ($columns !== null) {
+                static::applyColumnSelection($relation, $columns);
+            }
+
+            // Load the relation for all models
+            $modelsArray = $models->all();
+            $relation->addEagerConstraints($modelsArray);
+            $results = $relation->getResults();
+
+            // Match results to parent models
+            $relation->match($modelsArray, $results, $name);
+        }
+    }
+
+    /**
+     * Parse relationship specification with optional column selection.
+     *
+     * Examples:
+     * - 'childrens' -> ['childrens', null]
+     * - 'childrens:id,title' -> ['childrens', ['id', 'title']]
+     * - 'childrens:id,title,parent_id' -> ['childrens', ['id', 'title', 'parent_id']]
+     *
+     * @param string $spec Relationship specification
+     * @return array{string, array<string>|null} [relationName, columns|null]
+     */
+    protected static function parseRelationSpec(string $spec): array
+    {
+        if (!str_contains($spec, ':')) {
+            // No column selection
+            return [$spec, null];
+        }
+
+        // Split by ':' to get relation name and columns
+        [$name, $columnsStr] = explode(':', $spec, 2);
+
+        // Parse comma-separated columns
+        $columns = array_map('trim', explode(',', $columnsStr));
+
+        return [$name, $columns];
+    }
+
+    /**
+     * Apply column selection to a relationship query.
+     *
+     * Modifies the relation's query to SELECT only specified columns.
+     * Automatically includes the foreign key to maintain relationship integrity.
+     *
+     * SOLID Principles:
+     * - Single Responsibility: Only handles column selection logic
+     * - Open/Closed: Works with any relation type (HasMany, BelongsTo, etc.)
+     *
+     * @param Relations\RelationInterface $relation Relation instance
+     * @param array<string> $columns Columns to select
+     * @return void
+     */
+    protected static function applyColumnSelection(Relations\RelationInterface $relation, array $columns): void
+    {
+        // Get the query builder from relation
+        $query = $relation->getQuery();
+
+        // Ensure foreign key is always included (maintain relationship integrity)
+        $foreignKey = $relation->getForeignKeyName();
+        if (!in_array($foreignKey, $columns, true)) {
+            $columns[] = $foreignKey;
+        }
+
+        // Apply column selection
+        $query->select($columns);
     }
 }
 

@@ -180,4 +180,15 @@ class BelongsToMany extends Relation
             $this->attach($id);
         }
     }
+
+    /**
+     * {@inheritdoc}
+     *
+     * For BelongsToMany, we need to ensure the related key is selected
+     * on the related model (not the pivot table keys).
+     */
+    public function getForeignKeyName(): string
+    {
+        return $this->relatedKey;
+    }
 }

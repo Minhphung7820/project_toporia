@@ -59,4 +59,14 @@ interface RelationInterface
      * @return string
      */
     public function getLocalKey(): string;
+
+    /**
+     * Get the foreign key column name (for column selection in eager loading).
+     *
+     * This is typically the same as getForeignKey() but extracted as separate method
+     * to support future flexibility (e.g., qualified names like "table.column").
+     *
+     * @return string Foreign key column name
+     */
+    public function getForeignKeyName(): string;
 }

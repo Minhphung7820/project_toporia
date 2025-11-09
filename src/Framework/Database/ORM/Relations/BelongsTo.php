@@ -111,4 +111,15 @@ class BelongsTo extends Relation
 
         return $models;
     }
+
+    /**
+     * {@inheritdoc}
+     *
+     * For BelongsTo, we need to ensure the owner key (localKey) is selected
+     * on the related model, not the foreign key (which is on the parent).
+     */
+    public function getForeignKeyName(): string
+    {
+        return $this->localKey;
+    }
 }

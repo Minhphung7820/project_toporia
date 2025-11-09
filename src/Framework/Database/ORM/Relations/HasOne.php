@@ -73,4 +73,12 @@ class HasOne extends Relation
 
         return $models;
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getForeignKeyName(): string
+    {
+        return $this->foreignKey;
+    }
 }

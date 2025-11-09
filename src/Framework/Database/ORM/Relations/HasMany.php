@@ -36,7 +36,12 @@ class HasMany extends Relation
      */
     public function getResults(): ModelCollection
     {
-        $rows = $this->query->get();
+        $rowCollection = $this->query->get();
+
+        // Convert RowCollection to array for hydration
+        $rows = $rowCollection instanceof \Toporia\Framework\Database\Query\RowCollection
+            ? $rowCollection->all()
+            : $rowCollection;
 
         if (empty($rows)) {
             return new ModelCollection([]);
@@ -72,5 +77,13 @@ class HasMany extends Relation
         }
 
         return $models;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getForeignKeyName(): string
+    {
+        return $this->foreignKey;
     }
 }

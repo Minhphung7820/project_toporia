@@ -40,12 +40,12 @@ final class ScheduleServiceProvider extends ServiceProvider
     private function defineSchedule(Scheduler $scheduler, ContainerInterface $container): void
     {
         // Example 1: Run a command every minute with overlap prevention
-        $scheduler->call(function () {
-            echo "This runs every minute\n";
-            sleep(2); // Simulate work
-        })->everyMinute()
-          ->withoutOverlapping() // Prevent task from running if previous instance is still running
-          ->description('Example task - runs every minute (no overlap)');
+        // $scheduler->call(function () {
+        //     echo "This runs every minute\n";
+        //     sleep(2); // Simulate work
+        // })->everyMinute()
+        //   ->withoutOverlapping() // Prevent task from running if previous instance is still running
+        //   ->description('Example task - runs every minute (no overlap)');
 
         // Example 2: Clear old cache files daily at 2 AM
         // $scheduler->call(function () {
@@ -106,12 +106,12 @@ final class ScheduleServiceProvider extends ServiceProvider
         //     ->description('Weekly database backup');
 
         // Example 8: Generate daily report (weekdays only)
-        // $scheduler->call(function () {
-        //     echo "Daily report generated\n";
-        // })->weekdays()
-        //     ->dailyAt('17:00')
-        //     ->timezone('Asia/Ho_Chi_Minh')
-        //     ->description('Generate daily report');
+        $scheduler->call(function () {
+            echo "Daily report generated\n";
+        })->weekdays()
+            ->dailyAt('12:35')
+            ->timezone('Asia/Ho_Chi_Minh')
+            ->description('Generate daily report');
 
         // Example 9: Run database migrations on deploy (using command)
         // $scheduler->command('migrate')->description('Run pending migrations');
