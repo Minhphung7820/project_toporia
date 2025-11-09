@@ -29,10 +29,13 @@ final class ProductsController extends BaseController
         $this->response->json(['message' => 'created', 'data' => ['id' => $product->id, 'title' => $product->title]], 201);
     }
 
-    public function show(Request $request, ProductModel $product, string $id)
+    public function show(Request $request, string $id)
     {
-        dd();
-        $product = ProductModel::findOrFail($id);
+        $product = ProductModel::get()
+            ->map(function ($item) {
+                $item->add = 1;
+                return $item;
+            })->toArray();
         return response()->json($product);
     }
 }
