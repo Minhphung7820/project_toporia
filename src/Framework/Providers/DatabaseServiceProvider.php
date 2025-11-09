@@ -8,6 +8,7 @@ use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Database\Connection;
 use Toporia\Framework\Database\ConnectionInterface;
 use Toporia\Framework\Database\DatabaseManager;
+use Toporia\Framework\Database\ORM\Model;
 use Toporia\Framework\Foundation\ServiceProvider;
 
 /**
@@ -39,9 +40,14 @@ class DatabaseServiceProvider extends ServiceProvider
      */
     public function boot(ContainerInterface $container): void
     {
-        // Note: We don't eagerly connect here.
-        // Connection will be established lazily when first used.
-        // This prevents boot-time connection errors.
+        // Set default connection for ORM Models
+        try {
+            $db = $container->get(DatabaseManager::class);
+            Model::setConnection($db->connection());
+        } catch (\Throwable $e) {
+            // Database not configured - Models will fail when used
+            // This allows application to boot even without database
+        }
     }
 
     /**

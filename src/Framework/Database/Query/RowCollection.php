@@ -61,7 +61,7 @@ class RowCollection extends Collection
     foreach ($this->all() as $row) {
       $actual = $row[$key] ?? null;
 
-      $matches = match($operator) {
+      $matches = match ($operator) {
         '=' => $actual === $value,
         '==' => $actual == $value,
         '!=' => $actual != $value,
@@ -81,12 +81,15 @@ class RowCollection extends Collection
   /**
    * Convert to a plain array of rows.
    *
+   * Re-indexes the array to ensure sequential numeric keys (0, 1, 2...)
+   * This prevents JSON from encoding as object with string keys.
+   *
    * @return array<int, array<string,mixed>>
    */
   public function toArray(): array
   {
     /** @var array<int, array<string,mixed>> $items */
-    $items = parent::all();
+    $items = parent::values()->all();
     return $items;
   }
 }

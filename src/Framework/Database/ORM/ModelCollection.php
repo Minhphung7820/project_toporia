@@ -64,6 +64,6 @@ class ModelCollection extends Collection
   {
     return $this->map(
       fn(Model $m) => method_exists($m, 'toArray') ? $m->toArray() : get_object_vars($m)
-    )->all();
+    )->values()->all();
   }
 }

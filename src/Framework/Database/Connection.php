@@ -273,7 +273,7 @@ class Connection implements ConnectionInterface
     public function select(string $query, array $bindings = []): array
     {
         $statement = $this->execute($query, $bindings);
-        return $statement->fetchAll();
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**
@@ -286,7 +286,7 @@ class Connection implements ConnectionInterface
     public function selectOne(string $query, array $bindings = []): ?array
     {
         $statement = $this->execute($query, $bindings);
-        $result = $statement->fetch();
+        $result = $statement->fetch(PDO::FETCH_ASSOC);
         return $result ?: null;
     }
 
@@ -301,5 +301,19 @@ class Connection implements ConnectionInterface
     {
         $statement = $this->execute($query, $bindings);
         return $statement->rowCount();
+    }
+
+    /**
+     * Get a query builder for the given table.
+     *
+     * This enables fluent query building:
+     * $users = $connection->table('users')->where('active', true)->get();
+     *
+     * @param string $table Table name.
+     * @return Query\QueryBuilder
+     */
+    public function table(string $table): Query\QueryBuilder
+    {
+        return (new Query\QueryBuilder($this))->table($table);
     }
 }

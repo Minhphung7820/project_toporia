@@ -112,4 +112,15 @@ interface ConnectionInterface
      * @return int Number of affected rows.
      */
     public function affectingStatement(string $query, array $bindings = []): int;
+
+    /**
+     * Get a query builder for the given table.
+     *
+     * Enables fluent query building pattern:
+     * $users = $connection->table('users')->where('active', true)->get();
+     *
+     * @param string $table Table name.
+     * @return Query\QueryBuilder
+     */
+    public function table(string $table): Query\QueryBuilder;
 }

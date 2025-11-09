@@ -11,6 +11,11 @@ use Toporia\Framework\Database\ORM\Model;
  *
  * Represents a product entity with Active Record pattern.
  *
+ * Connection Configuration:
+ * - By default, uses the global default connection
+ * - Can specify a different connection by setting $connection property
+ * - Example: protected static ?string $connection = 'mysql';
+ *
  * @property int $id
  * @property string $title
  * @property string|null $sku
@@ -29,9 +34,23 @@ class ProductModel extends Model
     protected static string $table = 'products';
 
     /**
+     * Database connection name for this model.
+     *
+     * Uncomment to use a specific connection:
+     * protected static ?string $connection = 'mysql';
+     * protected static ?string $connection = 'analytics';
+     *
+     * If null (default), uses the global default connection.
+     *
+     * @var string|null
+     */
+    // protected static ?string $connection = null;
+
+    /**
      * {@inheritdoc}
      */
     protected static array $fillable = [
+        'id',
         'title',
         'sku',
         'description',

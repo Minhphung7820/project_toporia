@@ -585,4 +585,64 @@ class QueryBuilder implements QueryBuilderInterface
     {
         return new self($this->connection);
     }
+
+    /**
+     * Paginate the query results.
+     *
+     * This method follows SOLID principles:
+     * - Single Responsibility: Only handles database-level pagination
+     * - Open/Closed: Returns Paginator that can be extended
+     * - Dependency Inversion: Returns abstraction (Paginator), not concrete collection
+     *
+     * Performance:
+     * - Executes 2 queries: COUNT(*) for total, SELECT with LIMIT/OFFSET for data
+     * - Much more efficient than loading all data into memory
+     * - Scales to millions of records
+     *
+     * @param int $perPage Number of items per page (default: 15)
+     * @param int $page Current page number (1-indexed, default: 1)
+     * @param string|null $path Base URL path for pagination links
+     * @return \Toporia\Framework\Support\Pagination\Paginator
+     *
+     * @example
+     * // Basic pagination
+     * $paginator = DB::table('users')->paginate(15);
+     *
+     * // With filters
+     * $paginator = DB::table('products')
+     *     ->where('is_active', true)
+     *     ->orderBy('created_at', 'DESC')
+     *     ->paginate(20, page: 2);
+     *
+     * // Access data
+     * $items = $paginator->items();
+     * $total = $paginator->total();
+     * $hasMore = $paginator->hasMorePages();
+     */
+    public function paginate(int $perPage = 15, int $page = 1, ?string $path = null): \Toporia\Framework\Support\Pagination\Paginator
+    {
+        // Validate parameters
+        if ($perPage < 1) {
+            throw new \InvalidArgumentException('Per page must be at least 1');
+        }
+        if ($page < 1) {
+            throw new \InvalidArgumentException('Page must be at least 1');
+        }
+
+        // Step 1: Get total count (without limit/offset)
+        $total = $this->count();
+
+        // Step 2: Get paginated items
+        $offset = ($page - 1) * $perPage;
+        $items = $this->limit($perPage)->offset($offset)->get();
+
+        // Step 3: Return Paginator value object
+        return new \Toporia\Framework\Support\Pagination\Paginator(
+            items: $items,
+            total: $total,
+            perPage: $perPage,
+            currentPage: $page,
+            path: $path
+        );
+    }
 }

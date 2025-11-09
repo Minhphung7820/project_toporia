@@ -75,6 +75,22 @@ abstract class Model implements ModelInterface
     protected static array $casts = [];
 
     /**
+     * Connection name to use for this model.
+     * If null, uses the default global connection.
+     *
+     * Example:
+     * protected static ?string $connection = 'analytics';
+     *
+     * This follows SOLID principles:
+     * - Single Responsibility: Model specifies its data source
+     * - Open/Closed: Can override per model without modifying base class
+     * - Dependency Inversion: Depends on connection name, not concrete connection
+     *
+     * @var string|null
+     */
+    protected static ?string $connection = null;
+
+    /**
      * Current attribute bag.
      *
      * @var array<string, mixed>
@@ -96,11 +112,11 @@ abstract class Model implements ModelInterface
     private bool $exists = false;
 
     /**
-     * Shared database connection instance.
+     * Global default database connection instance.
      *
      * @var ConnectionInterface|null
      */
-    private static ?ConnectionInterface $connection = null;
+    private static ?ConnectionInterface $defaultConnection = null;
 
     /**
      * Loaded relationships.
@@ -119,25 +135,64 @@ abstract class Model implements ModelInterface
     }
 
     /**
-     * Set the global connection used by all models.
+     * Set the global default connection used by all models.
+     *
+     * This is typically called once during application bootstrap.
+     *
+     * @param ConnectionInterface $connection Default connection instance.
+     * @return void
      */
     public static function setConnection(ConnectionInterface $connection): void
     {
-        self::$connection = $connection;
+        self::$defaultConnection = $connection;
     }
 
     /**
-     * Get the configured database connection.
+     * Get the database connection for this model.
      *
-     * @throws \RuntimeException If no connection was set.
+     * Resolution order (following Laravel pattern):
+     * 1. Check if model specifies a connection name (static::$connection)
+     * 2. If yes, resolve from DatabaseManager
+     * 3. If no, use global default connection
+     *
+     * This follows SOLID principles:
+     * - Open/Closed: Each model can specify its connection without modifying base class
+     * - Dependency Inversion: Depends on DatabaseManager abstraction
+     * - Single Responsibility: Connection resolution logic in one place
+     *
+     * @return ConnectionInterface
+     * @throws \RuntimeException If no connection available.
      */
     protected static function getConnection(): ConnectionInterface
     {
-        if (self::$connection === null) {
-            throw new \RuntimeException('Database connection not set. Call Model::setConnection() first.');
+        // If model specifies a connection name, resolve it from DatabaseManager
+        if (static::$connection !== null) {
+            return static::resolveConnection(static::$connection);
         }
 
-        return self::$connection;
+        // Otherwise use global default connection
+        if (self::$defaultConnection === null) {
+            throw new \RuntimeException(
+                'Database connection not set. Call Model::setConnection() first or specify connection name in model.'
+            );
+        }
+
+        return self::$defaultConnection;
+    }
+
+    /**
+     * Resolve a connection by name from the DatabaseManager.
+     *
+     * This method can be overridden in tests to provide mock connections.
+     *
+     * @param string $name Connection name from config/database.php
+     * @return ConnectionInterface
+     */
+    protected static function resolveConnection(string $name): ConnectionInterface
+    {
+        // Get DatabaseManager from container
+        $manager = container(\Toporia\Framework\Database\DatabaseManager::class);
+        return $manager->connection($name);
     }
 
     /**
@@ -216,6 +271,48 @@ abstract class Model implements ModelInterface
     public static function all(): ModelCollection
     {
         return static::get();
+    }
+
+    /**
+     * Paginate the model query results.
+     *
+     * This provides a clean API for pagination at the model level:
+     * - Uses QueryBuilder::paginate() for database-level pagination
+     * - Returns Paginator with ModelCollection items
+     * - Supports all query builder methods (where, orderBy, etc.)
+     *
+     * SOLID Principles:
+     * - Single Responsibility: Delegates to QueryBuilder for actual pagination
+     * - Open/Closed: Can be overridden in child models for custom pagination
+     * - Dependency Inversion: Returns Paginator abstraction
+     *
+     * @param int $perPage Number of items per page (default: 15)
+     * @param int $page Current page number (1-indexed, default: 1)
+     * @param string|null $path Base URL path for pagination links
+     * @return \Toporia\Framework\Support\Pagination\Paginator
+     *
+     * @example
+     * // Basic pagination
+     * $products = ProductModel::paginate(15);
+     *
+     * // With query builder methods
+     * $products = ProductModel::where('is_active', true)
+     *     ->orderBy('created_at', 'DESC')
+     *     ->paginate(20, page: 2);
+     *
+     * // Access paginated data
+     * foreach ($products->items() as $product) {
+     *     echo $product->title;
+     * }
+     *
+     * // Get pagination metadata
+     * $total = $products->total();
+     * $lastPage = $products->lastPage();
+     * $hasMore = $products->hasMorePages();
+     */
+    public static function paginate(int $perPage = 15, int $page = 1, ?string $path = null): \Toporia\Framework\Support\Pagination\Paginator
+    {
+        return static::query()->paginate($perPage, $page, $path);
     }
 
     /**
@@ -373,8 +470,10 @@ abstract class Model implements ModelInterface
     public function fill(array $attributes): self
     {
         foreach ($attributes as $key => $value) {
-            if ($this->isFillable($key)) {
-                $this->setAttribute($key, $value);
+            // Ensure key is string for mass assignment
+            $keyString = (string) $key;
+            if ($this->isFillable($keyString)) {
+                $this->setAttribute($keyString, $value);
             }
         }
 

@@ -19,12 +19,12 @@ namespace Toporia\Framework\Support;
  * @template TKey of array-key
  * @template TValue
  */
-class Collection implements CollectionInterface
+class Collection implements CollectionInterface, \JsonSerializable
 {
     /**
      * @param array<TKey, TValue> $items
      */
-    protected function __construct(
+    public function __construct(
         protected array $items = []
     ) {}
 
@@ -1654,5 +1654,26 @@ class Collection implements CollectionInterface
             foreach ($fn($chunk) as $mapped) $out[] = $mapped;
         }
         return new static($out);
+    }
+
+    /**
+     * Specify data which should be serialized to JSON.
+     *
+     * This method is called automatically by json_encode().
+     * For ModelCollection, this will call toArray() which converts models to arrays.
+     * For regular Collection, this returns the raw items array.
+     *
+     * @return array
+     */
+    public function jsonSerialize(): array
+    {
+        // Check if this collection has a custom toArray implementation
+        // ModelCollection overrides toArray() to convert models to arrays
+        if (method_exists($this, 'toArray') && get_class($this) !== self::class) {
+            return $this->toArray();
+        }
+
+        // For base Collection, return items as-is
+        return $this->items;
     }
 }
