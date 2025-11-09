@@ -469,9 +469,10 @@ class ModelQueryBuilder extends QueryBuilder
      * @param string $relation Relationship name
      * @param string $column Column to aggregate
      * @param string $function Aggregate function (SUM, AVG, MIN, MAX)
+     * @param callable|null $callback Optional callback to constrain the aggregate
      * @return $this
      */
-    private function addRelationAggregateSelect(string $relation, string $column, string $function): self
+    private function addRelationAggregateSelect(string $relation, string $column, string $function, ?callable $callback = null): self
     {
         /** @var callable $getTableName */
         $getTableName = [$this->modelClass, 'getTableName'];
@@ -485,6 +486,12 @@ class ModelQueryBuilder extends QueryBuilder
         }
 
         $relationQuery = $relationInstance->getQuery();
+
+        // Apply callback constraints if provided
+        if ($callback !== null) {
+            $callback($relationQuery);
+        }
+
         $foreignKey = $relationInstance->getForeignKey();
         $localKey = $relationInstance->getLocalKey();
         $relationTable = $relationQuery->getTable();
@@ -495,6 +502,24 @@ class ModelQueryBuilder extends QueryBuilder
         // Build subselect with proper aliasing
         $fromClause = $table === $relationTable ? "{$relationTable} AS {$relationAlias}" : $relationTable;
         $subquery = "SELECT {$function}({$relationAlias}.{$column}) FROM {$fromClause} WHERE {$relationAlias}.{$foreignKey} = {$table}.{$localKey}";
+
+        // Add relation query wheres to subquery
+        // Important: Inject bindings directly into SQL to avoid binding order issues
+        $relationSql = $relationQuery->toSql();
+        if (preg_match('/WHERE (.+?)(?:ORDER BY|LIMIT|$)/s', $relationSql, $matches)) {
+            $whereClause = $matches[1];
+
+            // Replace placeholders with actual values (escaped)
+            $relationBindings = $relationQuery->getBindings();
+            $boundWhereClause = $whereClause;
+            foreach ($relationBindings as $binding) {
+                // Escape and quote value
+                $escaped = is_string($binding) ? "'" . addslashes($binding) . "'" : $binding;
+                $boundWhereClause = preg_replace('/\?/', (string)$escaped, $boundWhereClause, 1);
+            }
+
+            $subquery .= " AND ({$boundWhereClause})";
+        }
 
         $functionLower = strtolower($function);
         $columnAlias = "{$relation}_{$functionLower}_{$column}";
