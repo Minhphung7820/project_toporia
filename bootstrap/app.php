@@ -11,17 +11,6 @@ declare(strict_types=1);
 
 use Toporia\Framework\Foundation\Application;
 
-// Framework Service Providers
-use Toporia\Framework\Providers\HttpServiceProvider;
-use Toporia\Framework\Providers\EventServiceProvider;
-use Toporia\Framework\Providers\RoutingServiceProvider;
-use Toporia\Framework\Providers\DatabaseServiceProvider;
-use Toporia\Framework\Providers\ConsoleServiceProvider;
-
-// Application Service Providers
-use App\Providers\AppServiceProvider;
-use App\Providers\RepositoryServiceProvider;
-
 /*
 |--------------------------------------------------------------------------
 | Create The Application
@@ -80,7 +69,7 @@ if (file_exists($envFile)) {
             }
 
             // Expand variables like ${VAR}
-            $value = preg_replace_callback('/\$\{([A-Z_]+)\}/', function($m) {
+            $value = preg_replace_callback('/\$\{([A-Z_]+)\}/', function ($m) {
                 return $_ENV[$m[1]] ?? '';
             }, $value);
 
@@ -119,22 +108,22 @@ require __DIR__ . '/helpers.php';
 $app->registerProviders([
     // Framework core providers (order matters!)
     \Toporia\Framework\Providers\ConfigServiceProvider::class,
-    HttpServiceProvider::class,
-    EventServiceProvider::class,
-    RoutingServiceProvider::class,
-    ConsoleServiceProvider::class,
-    \Toporia\Framework\Providers\AuthServiceProvider::class,  // Auth system
+    \Toporia\Framework\Providers\HttpServiceProvider::class,
+    \Toporia\Framework\Providers\EventServiceProvider::class,
+    \Toporia\Framework\Providers\RoutingServiceProvider::class,
+    \Toporia\Framework\Providers\ConsoleServiceProvider::class,
+    \Toporia\Framework\Providers\AuthServiceProvider::class,      // Auth system
     \Toporia\Framework\Providers\SecurityServiceProvider::class,  // Security (CSRF, Gates, Cookies)
     \Toporia\Framework\Providers\CacheServiceProvider::class,     // Cache system
     \Toporia\Framework\Providers\QueueServiceProvider::class,     // Queue system
     \Toporia\Framework\Providers\ScheduleServiceProvider::class,  // Task scheduler
     \Toporia\Framework\Providers\MailServiceProvider::class,      // Mail system
-    \Toporia\Framework\Providers\HttpClientServiceProvider::class,// HTTP client (API calls)
-    DatabaseServiceProvider::class,                               // Database system
+    \Toporia\Framework\Providers\HttpClientServiceProvider::class, // HTTP client (API calls)
+    \Toporia\Framework\Providers\DatabaseServiceProvider::class,  // Database system
 
     // Application providers
-    AppServiceProvider::class,
-    RepositoryServiceProvider::class,
+    \App\Providers\AppServiceProvider::class,
+    \App\Providers\RepositoryServiceProvider::class,
     \App\Providers\EventServiceProvider::class,
     \App\Providers\RouteServiceProvider::class,
     \App\Providers\ScheduleServiceProvider::class,  // Scheduled tasks configuration
