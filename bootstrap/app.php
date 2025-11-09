@@ -115,6 +115,7 @@ $app->registerProviders([
     \Toporia\Framework\Providers\QueueServiceProvider::class,     // Queue system
     \Toporia\Framework\Providers\ScheduleServiceProvider::class,  // Task scheduler
     \Toporia\Framework\Providers\MailServiceProvider::class,      // Mail system
+    \Toporia\Framework\Providers\HttpClientServiceProvider::class,// HTTP client (API calls)
     DatabaseServiceProvider::class,                               // Database system
 
     // Application providers

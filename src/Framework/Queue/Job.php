@@ -9,6 +9,10 @@ namespace Toporia\Framework\Queue;
  *
  * Base class for queued jobs.
  * Provides common functionality for job management.
+ *
+ * Note: The handle() method signature can vary in child classes to accept
+ * dependencies via type-hinted parameters. The Worker uses the container
+ * to automatically inject dependencies.
  */
 abstract class Job implements JobInterface
 {
@@ -24,11 +28,19 @@ abstract class Job implements JobInterface
 
     /**
      * Handle the job execution
-     * Override this method in concrete job classes
      *
-     * @return void
+     * This method must be implemented in concrete job classes.
+     * The signature can vary to accept dependencies via type-hinted parameters.
+     * The Worker will use the container to inject dependencies automatically.
+     *
+     * Examples:
+     *   public function handle(): void { ... }
+     *   public function handle(MailerInterface $mailer): void { ... }
+     *   public function handle(Repository $repo, Logger $logger): void { ... }
+     *
+     * Note: PHP doesn't support covariant method signatures in abstract classes,
+     * so we can't enforce this signature. Child classes MUST implement handle().
      */
-    abstract public function handle(): void;
 
     public function getId(): string
     {

@@ -7,10 +7,11 @@ namespace App\Presentation\Console;
 use Toporia\Framework\Console\Application;
 use Toporia\Framework\Console\Command;
 use Toporia\Framework\Console\Commands\MigrateCommand;
-use App\Application\Console\Commands\CacheClearCommand;
-use App\Application\Console\Commands\QueueWorkCommand;
-use App\Application\Console\Commands\ScheduleRunCommand;
-use App\Application\Console\Commands\ScheduleListCommand;
+use Toporia\Framework\Console\Commands\CacheClearCommand;
+use Toporia\Framework\Console\Commands\QueueWorkCommand;
+use Toporia\Framework\Console\Commands\ScheduleRunCommand;
+use Toporia\Framework\Console\Commands\ScheduleWorkCommand;
+use Toporia\Framework\Console\Commands\ScheduleListCommand;
 
 /**
  * Console Kernel
@@ -43,6 +44,7 @@ final class Kernel
 
             // Schedule commands
             ScheduleRunCommand::class,
+            ScheduleWorkCommand::class,
             ScheduleListCommand::class,
 
             // Add your custom commands here...

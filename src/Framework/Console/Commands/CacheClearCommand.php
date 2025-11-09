@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Console\Commands;
+namespace Toporia\Framework\Console\Commands;
 
 use Toporia\Framework\Console\Command;
 use Toporia\Framework\Cache\CacheManagerInterface;

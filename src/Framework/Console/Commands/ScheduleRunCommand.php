@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Console\Commands;
+namespace Toporia\Framework\Console\Commands;
 
 use Toporia\Framework\Console\Command;
 use Toporia\Framework\Schedule\Scheduler;
@@ -10,13 +10,17 @@ use Toporia\Framework\Schedule\Scheduler;
 /**
  * Schedule Run Command
  *
- * Run all scheduled tasks that are due.
- * This command should be run every minute by cron:
+ * Run all scheduled tasks that are due to run (single execution).
+ * This command is designed to be called by cron every minute.
+ *
+ * Production Setup (Cron):
  *   * * * * * cd /path/to/project && php console schedule:run >> storage/logs/schedule.log 2>&1
  *
+ * For continuous mode (development), use: php console schedule:work
+ *
  * Usage:
- *   php console schedule:run
- *   php console schedule:run --verbose
+ *   php console schedule:run           # Run once (for cron)
+ *   php console schedule:run --verbose # Verbose output
  */
 final class ScheduleRunCommand extends Command
 {
@@ -34,7 +38,6 @@ final class ScheduleRunCommand extends Command
         // Display header
         $this->displayHeader($verbose);
 
-        // Run due tasks
         try {
             $tasksRun = $this->scheduler->runDueTasks();
 

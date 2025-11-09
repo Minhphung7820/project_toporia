@@ -9,15 +9,14 @@ namespace Toporia\Framework\Queue;
  *
  * Defines contract for queued jobs.
  * Jobs encapsulate a unit of work to be executed asynchronously.
+ *
+ * Note: The handle() method is intentionally NOT defined in this interface
+ * to allow child classes to use different signatures for dependency injection.
+ * The Worker uses the container to call handle() with automatic DI.
  */
 interface JobInterface
 {
-    /**
-     * Execute the job
-     *
-     * @return void
-     */
-    public function handle(): void;
+    // Note: handle() method signature varies per implementation for DI support
 
     /**
      * Get the job identifier

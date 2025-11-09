@@ -7,6 +7,8 @@ namespace Toporia\Framework\Providers;
 use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Foundation\ServiceProvider;
 use Toporia\Framework\Schedule\Scheduler;
+use Toporia\Framework\Schedule\MutexInterface;
+use Toporia\Framework\Schedule\CacheMutex;
 
 /**
  * Schedule Service Provider
@@ -17,13 +19,24 @@ final class ScheduleServiceProvider extends ServiceProvider
 {
     public function register(ContainerInterface $container): void
     {
-        $container->singleton(Scheduler::class, fn() => new Scheduler());
+        // Register mutex
+        $container->singleton(MutexInterface::class, function ($c) {
+            return new CacheMutex($c->get('cache'));
+        });
+
+        // Register scheduler
+        $container->singleton(Scheduler::class, function ($c) {
+            $scheduler = new Scheduler();
+            $scheduler->setContainer($c);
+            $scheduler->setMutex($c->get(MutexInterface::class));
+            return $scheduler;
+        });
         $container->bind('schedule', fn($c) => $c->get(Scheduler::class));
     }
 
     public function boot(ContainerInterface $container): void
     {
-        // This is where you would define scheduled tasks
-        // For example, load from routes/schedule.php or app/schedule.php
+        // Scheduler is now ready with container injected
+        // Scheduled tasks are defined in App\Providers\ScheduleServiceProvider
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Toporia\Framework\Queue;
 
+use Toporia\Framework\Container\ContainerInterface;
+
 /**
  * Queue Worker
  *
@@ -17,6 +19,7 @@ final class Worker
 
     public function __construct(
         private QueueInterface $queue,
+        private ?ContainerInterface $container = null,
         private int $maxJobs = 0,
         private int $sleep = 3
     ) {}
@@ -65,7 +68,13 @@ final class Worker
             echo "Processing job: {$job->getId()}\n";
 
             $job->incrementAttempts();
-            $job->handle();
+
+            // Use container to call handle() with dependency injection
+            if ($this->container) {
+                $this->container->call([$job, 'handle']);
+            } else {
+                $job->handle();
+            }
 
             echo "Job completed: {$job->getId()}\n";
         } catch (\Throwable $e) {
@@ -116,5 +125,15 @@ final class Worker
     public function getProcessedCount(): int
     {
         return $this->processed;
+    }
+
+    /**
+     * Get the queue instance
+     *
+     * @return QueueInterface
+     */
+    public function getQueue(): QueueInterface
+    {
+        return $this->queue;
     }
 }

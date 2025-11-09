@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Jobs;
+namespace Toporia\Framework\Mail\Jobs;
 
 use Toporia\Framework\Queue\Job;
 use Toporia\Framework\Mail\MessageInterface;

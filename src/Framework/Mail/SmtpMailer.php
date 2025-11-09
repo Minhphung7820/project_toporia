@@ -66,7 +66,7 @@ final class SmtpMailer implements MailerInterface
             throw new \RuntimeException('Queue not configured for mailer');
         }
 
-        $job = new \App\Application\Jobs\SendMailJob($message);
+        $job = new \Toporia\Framework\Mail\Jobs\SendMailJob($message);
 
         if ($delay > 0) {
             $this->queue->later($job, $delay);

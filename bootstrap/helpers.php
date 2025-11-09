@@ -211,3 +211,22 @@ if (!function_exists('mail')) {
         return $manager->sendMailable($mailable);
     }
 }
+
+if (!function_exists('http')) {
+    /**
+     * Get the HTTP client manager or make a request.
+     *
+     * @param string|null $client Client name.
+     * @return \Toporia\Framework\Http\Client\ClientManagerInterface|\Toporia\Framework\Http\Client\HttpClientInterface
+     */
+    function http(?string $client = null): mixed
+    {
+        $manager = app('http');
+
+        if ($client === null) {
+            return $manager;
+        }
+
+        return $manager->client($client);
+    }
+}

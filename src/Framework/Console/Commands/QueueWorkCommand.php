@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Application\Console\Commands;
+namespace Toporia\Framework\Console\Commands;
 
 use Toporia\Framework\Console\Command;
+use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Queue\QueueManagerInterface;
 use Toporia\Framework\Queue\Worker;
 
@@ -27,7 +28,8 @@ final class QueueWorkCommand extends Command
     private bool $shouldQuit = false;
 
     public function __construct(
-        private readonly QueueManagerInterface $queueManager
+        private readonly QueueManagerInterface $queueManager,
+        private readonly ContainerInterface $container
     ) {}
 
     public function handle(): int
@@ -46,8 +48,8 @@ final class QueueWorkCommand extends Command
             return 1;
         }
 
-        // Create worker
-        $worker = new Worker($queue, $maxJobs, $sleep);
+        // Create worker with container for dependency injection
+        $worker = new Worker($queue, $this->container, $maxJobs, $sleep);
 
         // Setup graceful shutdown
         $this->setupSignalHandlers($worker);
@@ -121,12 +123,13 @@ final class QueueWorkCommand extends Command
             }
 
             try {
-                $job->handle();
+                // Use container to call handle() with dependency injection
+                $this->container->call([$job, 'handle']);
                 $this->success("Job processed successfully: " . get_class($job));
                 $processed++;
             } catch (\Throwable $e) {
                 $this->error("Job failed: {$e->getMessage()}");
-                $worker->getQueue()->failed($job, $e);
+                $job->failed($e);
             }
         }
 

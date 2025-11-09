@@ -16,6 +16,10 @@ final class ScheduledTask
     private ?string $timezone = null;
     private array $filters = [];
     private array $rejects = [];
+    private bool $runInBackground = false;
+    private bool $withoutOverlapping = false;
+    private ?string $mutexName = null;
+    private int $expiresAfter = 1440; // 24 hours in minutes
 
     public function __construct(
         private mixed $callback,
@@ -257,6 +261,48 @@ final class ScheduledTask
     }
 
     /**
+     * Run the task in the background
+     *
+     * @return self
+     */
+    public function runInBackground(): self
+    {
+        $this->runInBackground = true;
+        return $this;
+    }
+
+    /**
+     * Prevent the task from overlapping
+     *
+     * @param int $expiresAfter Mutex expires after X minutes (default: 1440 = 24 hours)
+     * @return self
+     */
+    public function withoutOverlapping(int $expiresAfter = 1440): self
+    {
+        $this->withoutOverlapping = true;
+        $this->expiresAfter = $expiresAfter;
+
+        // Generate mutex name from callback
+        if ($this->mutexName === null) {
+            $this->mutexName = $this->generateMutexName();
+        }
+
+        return $this;
+    }
+
+    /**
+     * Set custom mutex name for overlap prevention
+     *
+     * @param string $name
+     * @return self
+     */
+    public function name(string $name): self
+    {
+        $this->mutexName = $name;
+        return $this;
+    }
+
+    /**
      * Check if the task is due to run
      *
      * @param \DateTime $currentTime
@@ -294,6 +340,46 @@ final class ScheduledTask
     public function execute(): void
     {
         ($this->callback)();
+    }
+
+    /**
+     * Check if task should run in background
+     *
+     * @return bool
+     */
+    public function shouldRunInBackground(): bool
+    {
+        return $this->runInBackground;
+    }
+
+    /**
+     * Check if task has overlap prevention enabled
+     *
+     * @return bool
+     */
+    public function hasOverlapPrevention(): bool
+    {
+        return $this->withoutOverlapping;
+    }
+
+    /**
+     * Get mutex name for overlap prevention
+     *
+     * @return string|null
+     */
+    public function getMutexName(): ?string
+    {
+        return $this->mutexName;
+    }
+
+    /**
+     * Get mutex expiration time in minutes
+     *
+     * @return int
+     */
+    public function getExpiresAfter(): int
+    {
+        return $this->expiresAfter;
     }
 
     /**
@@ -379,5 +465,24 @@ final class ScheduledTask
         }
 
         return false;
+    }
+
+    /**
+     * Generate mutex name from callback
+     *
+     * @return string
+     */
+    private function generateMutexName(): string
+    {
+        if (is_string($this->callback)) {
+            return 'schedule-' . md5($this->callback);
+        }
+
+        if (is_array($this->callback)) {
+            $class = is_object($this->callback[0]) ? get_class($this->callback[0]) : $this->callback[0];
+            return 'schedule-' . md5($class . '::' . $this->callback[1]);
+        }
+
+        return 'schedule-' . md5(spl_object_hash($this->callback));
     }
 }
