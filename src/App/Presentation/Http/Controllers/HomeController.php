@@ -1,70 +1,72 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Presentation\Http\Controllers;
 
 use App\Domain\Product\ProductModel;
-use Toporia\Framework\Support\Accessors\Auth;
-use Toporia\Framework\Support\Accessors\DB;
-use Toporia\Framework\Support\Result;
-use Toporia\Framework\Support\Str;
+use Toporia\Framework\Http\Request;
+use Toporia\Framework\Http\Response;
 
-final class HomeController extends BaseController
+/**
+ * Home Controller
+ *
+ * Demo: Modern approach WITHOUT extending BaseController.
+ * Uses method injection + helper functions for maximum flexibility.
+ */
+final class HomeController
 {
-    public function index()
+    use ControllerHelpers; // Optional: adds view(), json(), etc. helper methods
+
+    /**
+     * Product listing with pagination.
+     *
+     * Demo: Request injection (Laravel-style) + helper methods from trait
+     */
+    public function index(Request $request)
     {
-        // ========================================================================
-        // RELATIONSHIP QUERY METHODS - Clean Architecture, SOLID, High Reusability
-        // ========================================================================
 
-        // 1. Basic eager loading
-        // $products = ProductModel::with('childrens')->paginate(12);
-
-        // 2. Eager loading with column selection
-        // $products = ProductModel::with('childrens:id,title,parent_id,price')->paginate(12);
-
-        // 3. Eager loading with callback (array syntax)
-        // $products = ProductModel::with(['childrens' => function ($q) {
-        //     $q->where('is_active', 1)->orderBy('price', 'DESC');
-        // }])->paginate(12);
-
-        // 4. Filter by relationship existence
-        // $products = ProductModel::query()->whereHas('childrens')->paginate(12);
-
-        // 5. Filter by relationship with constraints
-        // $products = ProductModel::query()
-        //     ->whereHas('childrens', function ($q) {
-        //         $q->where('is_active', 1);
-        //     })
-        //     ->paginate(12);
-
-        // 6. Count related models (all)
-        // $products = ProductModel::query()->withCount('childrens')->paginate(12);
-
-        // 7. Count with constraints (only count active children)
-        // $products = ProductModel::query()
-        //     ->withCount(['childrens' => function ($q) {
-        //         $q->where('is_active', 1);
-        //     }])
-        //     ->paginate(12);
-
-        // 8. Combined: Only products WITH active children + count them
         $products = ProductModel::query()
-            ->whereHas('childrens', function ($q) {
-                $q->where('is_active', 1);
+            ->where(function ($q) {
+                $q->where('stock', '>', 0);
+                $q->where('is_active', 0);
             })
-            ->withCount(['childrens' => function ($q) {
-                $q->where('is_active', 1);
-            }])->withSum('childrens', 'price')
-            ->withSum('childrens', 'stock')
             ->paginate(12);
 
-        return $this->response->json([
-            'products' => $products
+        // Using trait helper method
+        return $this->json([
+            'products' => $products,
+            'request_path' => $request->path(),
+            'method' => $request->method()
         ]);
     }
 
-    public function dashboard(): string
+    /**
+     * Dashboard view.
+     *
+     * Demo: Using trait's view() method + helper functions
+     */
+    public function dashboard()
     {
-        return $this->view('home/index', ['user' => auth()->user()]);
+        $user = auth()->user();
+
+        // Using trait helper method
+        return $this->view('home/index', [
+            'user' => $user,
+            'path' => request()->path()
+        ]);
+    }
+
+    /**
+     * API endpoint example.
+     *
+     * Demo: Pure method injection, no trait needed
+     */
+    public function api(Request $request, Response $response)
+    {
+        return $response->json([
+            'message' => 'Hello from API',
+            'query' => $request->query('search'),
+        ]);
     }
 }

@@ -38,6 +38,20 @@ $app = new Application(
 
 /*
 |--------------------------------------------------------------------------
+| Register Error Handler
+|--------------------------------------------------------------------------
+|
+| Register beautiful error handler for debugging and production.
+| This must be done early to catch all errors.
+|
+*/
+
+$debug = ($_ENV['APP_DEBUG'] ?? 'true') === 'true';
+$errorHandler = new \Toporia\Framework\Error\ErrorHandler($debug);
+$errorHandler->register();
+
+/*
+|--------------------------------------------------------------------------
 | Load Environment Variables
 |--------------------------------------------------------------------------
 |

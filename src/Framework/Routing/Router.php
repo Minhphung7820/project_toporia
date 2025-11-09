@@ -219,17 +219,20 @@ final class Router implements RouterInterface
     private function buildCoreHandler(mixed $handler, array $parameters): callable
     {
         return function (Request $req, Response $res) use ($handler, $parameters) {
+            // Temporarily bind Request and Response in container for auto-wiring
+            // This allows controllers/actions to inject Request/Response in method parameters
+            $this->container->instance(Request::class, $req);
+            $this->container->instance(Response::class, $res);
+
             // Array handler [ControllerClass::class, 'method']
             if (is_array($handler) && is_string($handler[0])) {
-                // Temporarily bind Request and Response in container for auto-wiring
-                $this->container->instance(Request::class, $req);
-                $this->container->instance(Response::class, $res);
-
                 // Auto-wire controller with all dependencies
                 $controller = $this->container->get($handler[0]);
                 $method = $handler[1];
 
-                return $controller->{$method}(...array_values($parameters));
+                // Use container->call() for method parameter injection
+                // This allows Request/Response to be auto-injected into controller methods
+                return $this->container->call([$controller, $method], $parameters);
             }
 
             // Callable handler

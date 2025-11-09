@@ -378,3 +378,65 @@ if (!function_exists('cache')) {
         throw new RuntimeException('Cache manager not available');
     }
 }
+
+// =============================================================================
+// HTTP Request/Response Helper Functions
+// =============================================================================
+
+if (!function_exists('request')) {
+    /**
+     * Get the current HTTP request instance from the container.
+     *
+     * @return \Toporia\Framework\Http\Request
+     * @throws RuntimeException if Request is not available in container
+     */
+    function request(): \Toporia\Framework\Http\Request
+    {
+        if (function_exists('app') && app()->has(\Toporia\Framework\Http\Request::class)) {
+            return app(\Toporia\Framework\Http\Request::class);
+        }
+
+        throw new RuntimeException('Request instance not available in container');
+    }
+}
+
+if (!function_exists('response')) {
+    /**
+     * Get the current HTTP response instance from the container.
+     *
+     * @return \Toporia\Framework\Http\Response
+     * @throws RuntimeException if Response is not available in container
+     */
+    function response(): \Toporia\Framework\Http\Response
+    {
+        if (function_exists('app') && app()->has(\Toporia\Framework\Http\Response::class)) {
+            return app(\Toporia\Framework\Http\Response::class);
+        }
+
+        throw new RuntimeException('Response instance not available in container');
+    }
+}
+
+if (!function_exists('view')) {
+    /**
+     * Render a view template.
+     *
+     * @param string $path View path relative to Views directory (without .php extension)
+     * @param array $data Data to extract into view scope
+     * @return string Rendered HTML content
+     */
+    function view(string $path, array $data = []): string
+    {
+        extract($data);
+        ob_start();
+
+        $viewPath = __DIR__ . '/../../App/Views/' . $path . '.php';
+
+        if (!file_exists($viewPath)) {
+            throw new RuntimeException("View not found: {$path}");
+        }
+
+        include $viewPath;
+        return ob_get_clean();
+    }
+}

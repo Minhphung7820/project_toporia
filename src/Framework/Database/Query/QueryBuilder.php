@@ -72,6 +72,27 @@ class QueryBuilder implements QueryBuilderInterface
     private ?int $offset = null;
 
     /**
+     * GROUP BY columns.
+     *
+     * @var array<string>
+     */
+    private array $groups = [];
+
+    /**
+     * HAVING clauses.
+     *
+     * @var array<array>
+     */
+    private array $havings = [];
+
+    /**
+     * DISTINCT flag.
+     *
+     * @var bool
+     */
+    private bool $distinct = false;
+
+    /**
      * Positional bindings for prepared statements.
      *
      * @var array<mixed>
@@ -443,6 +464,215 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
+     * Add a GROUP BY clause.
+     *
+     * Supports multiple syntaxes:
+     * - groupBy('category')                  // Single column
+     * - groupBy('category', 'status')        // Multiple columns (varargs)
+     * - groupBy(['category', 'status'])      // Array of columns
+     *
+     * Clean Architecture:
+     * - Simple, focused method (Single Responsibility)
+     * - Fluent interface for chaining
+     * - No side effects beyond state update
+     *
+     * Performance: O(1) - Just appends to array
+     *
+     * @param string|array<string> $columns Column(s) to group by
+     * @return $this
+     *
+     * @example
+     * // Group by single column
+     * $query->groupBy('category');
+     *
+     * // Group by multiple columns
+     * $query->groupBy('category', 'status');
+     * $query->groupBy(['category', 'status']);
+     */
+    public function groupBy(string|array ...$columns): self
+    {
+        // Flatten arguments: groupBy('a', 'b') or groupBy(['a', 'b'])
+        foreach ($columns as $column) {
+            if (is_array($column)) {
+                foreach ($column as $col) {
+                    $this->groups[] = $col;
+                }
+            } else {
+                $this->groups[] = $column;
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Add a HAVING clause.
+     *
+     * Syntax: having('column', 'operator', 'value')
+     * Example: having('COUNT(*)', '>', 5)
+     *
+     * HAVING is used with GROUP BY to filter aggregated results.
+     *
+     * @param string $column Column or aggregate expression
+     * @param string $operator Comparison operator
+     * @param mixed  $value Value to compare
+     * @return $this
+     *
+     * @example
+     * $query->select(['category', 'COUNT(*) as count'])
+     *       ->groupBy('category')
+     *       ->having('count', '>', 10);
+     */
+    public function having(string $column, string $operator, mixed $value): self
+    {
+        $this->havings[] = [
+            'column' => $column,
+            'operator' => $operator,
+            'value' => $value,
+            'boolean' => 'AND'
+        ];
+
+        $this->bindings[] = $value;
+
+        return $this;
+    }
+
+    /**
+     * Add an OR HAVING clause.
+     *
+     * @param string $column Column or aggregate expression
+     * @param string $operator Comparison operator
+     * @param mixed  $value Value to compare
+     * @return $this
+     */
+    public function orHaving(string $column, string $operator, mixed $value): self
+    {
+        $this->havings[] = [
+            'column' => $column,
+            'operator' => $operator,
+            'value' => $value,
+            'boolean' => 'OR'
+        ];
+
+        $this->bindings[] = $value;
+
+        return $this;
+    }
+
+    /**
+     * Add DISTINCT to the SELECT query.
+     *
+     * Returns only unique rows based on ALL selected columns.
+     *
+     * Performance:
+     * - Database handles DISTINCT efficiently with indexes
+     * - More efficient than manual array_unique() in PHP
+     *
+     * @return $this
+     *
+     * @example
+     * // Get unique categories
+     * $query->select('category')->distinct()->get();
+     *
+     * // Get unique combinations
+     * $query->select(['category', 'status'])->distinct()->get();
+     */
+    public function distinct(): self
+    {
+        $this->distinct = true;
+        return $this;
+    }
+
+    /**
+     * Order results by a column in ascending order (oldest first).
+     *
+     * Shortcut for: orderBy($column, 'ASC')
+     *
+     * @param string $column Column to order by (default: 'created_at')
+     * @return $this
+     *
+     * @example
+     * // Oldest posts first
+     * $query->oldest('created_at')->get();
+     *
+     * // Oldest by custom column
+     * $query->oldest('published_at')->get();
+     */
+    public function oldest(string $column = 'created_at'): self
+    {
+        return $this->orderBy($column, 'ASC');
+    }
+
+    /**
+     * Order results by a column in descending order (latest first).
+     *
+     * Shortcut for: orderBy($column, 'DESC')
+     *
+     * @param string $column Column to order by (default: 'created_at')
+     * @return $this
+     *
+     * @example
+     * // Latest posts first
+     * $query->latest('created_at')->get();
+     *
+     * // Latest by custom column
+     * $query->latest('updated_at')->get();
+     */
+    public function latest(string $column = 'created_at'): self
+    {
+        return $this->orderBy($column, 'DESC');
+    }
+
+    /**
+     * Randomize the order of results.
+     *
+     * Uses RAND() for MySQL-compatible databases.
+     *
+     * Performance Warning:
+     * - RANDOM() can be slow on large tables
+     * - Consider using LIMIT with inRandomOrder() for better performance
+     *
+     * @return $this
+     *
+     * @example
+     * // Get 10 random products
+     * $query->inRandomOrder()->limit(10)->get();
+     */
+    public function inRandomOrder(): self
+    {
+        // Use RAND() which works for MySQL, MariaDB
+        // For PostgreSQL/SQLite, use RANDOM() manually: orderBy('RANDOM()')
+        $this->orders[] = [
+            'column' => 'RAND()',
+            'direction' => '' // No direction for RANDOM()
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Shortcut for limit().
+     *
+     * @param int $limit Number of records to take
+     * @return $this
+     */
+    public function take(int $limit): self
+    {
+        return $this->limit($limit);
+    }
+
+    /**
+     * Shortcut for offset().
+     *
+     * @param int $offset Number of records to skip
+     * @return $this
+     */
+    public function skip(int $offset): self
+    {
+        return $this->offset($offset);
+    }
+
+    /**
      * Execute the built SELECT and return a typed RowCollection.
      *
      * @return RowCollection<int, array<string,mixed>>
@@ -594,12 +824,17 @@ class QueryBuilder implements QueryBuilderInterface
      */
     public function toSql(): string
     {
+        $distinct = $this->distinct ? 'DISTINCT ' : '';
+
         return sprintf(
-            'SELECT %s FROM %s%s%s%s%s%s',
+            'SELECT %s%s FROM %s%s%s%s%s%s%s',
+            $distinct,
             implode(', ', $this->columns),
             $this->table,
             $this->compileJoins(),
             $this->compileWheres(),
+            $this->compileGroups(),
+            $this->compileHavings(),
             $this->compileOrders(),
             $this->compileLimit(),
             $this->compileOffset()
@@ -776,6 +1011,54 @@ class QueryBuilder implements QueryBuilderInterface
     private function compileOffset(): string
     {
         return $this->offset !== null ? " OFFSET {$this->offset}" : '';
+    }
+
+    /**
+     * Compile GROUP BY clause.
+     *
+     * Performance: O(N) where N = number of GROUP BY columns
+     *
+     * @return string
+     */
+    private function compileGroups(): string
+    {
+        if (empty($this->groups)) {
+            return '';
+        }
+
+        return ' GROUP BY ' . implode(', ', $this->groups);
+    }
+
+    /**
+     * Compile HAVING clauses.
+     *
+     * HAVING works like WHERE but for aggregated results.
+     * Must be used with GROUP BY.
+     *
+     * Performance: O(N) where N = number of HAVING conditions
+     *
+     * @return string
+     */
+    private function compileHavings(): string
+    {
+        if (empty($this->havings)) {
+            return '';
+        }
+
+        $sql = '';
+
+        foreach ($this->havings as $index => $having) {
+            $boolean = $index === 0 ? 'HAVING' : $having['boolean'];
+
+            $sql .= sprintf(
+                ' %s %s %s ?',
+                $boolean,
+                $having['column'],
+                $having['operator']
+            );
+        }
+
+        return $sql;
     }
 
     /**
