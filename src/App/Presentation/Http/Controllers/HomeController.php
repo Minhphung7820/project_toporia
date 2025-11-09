@@ -14,10 +14,8 @@ use Toporia\Framework\Http\Response;
  * Demo: Modern approach WITHOUT extending BaseController.
  * Uses method injection + helper functions for maximum flexibility.
  */
-final class HomeController
+final class HomeController extends BaseController
 {
-    use ControllerHelpers; // Optional: adds view(), json(), etc. helper methods
-
     /**
      * Product listing with pagination.
      *

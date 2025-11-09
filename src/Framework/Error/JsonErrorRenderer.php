@@ -46,6 +46,11 @@ final class JsonErrorRenderer implements ErrorRendererInterface
      */
     private function formatException(Throwable $exception): array
     {
+        // Handle ValidationException specially
+        if ($exception instanceof \Toporia\Framework\Http\ValidationException) {
+            return $exception->toArray();
+        }
+
         if ($this->debug) {
             return [
                 'error' => [
@@ -92,8 +97,17 @@ final class JsonErrorRenderer implements ErrorRendererInterface
      */
     private function getStatusCode(Throwable $exception): int
     {
-        // You can implement custom logic here
-        // For example, check if exception implements HttpExceptionInterface
+        // ValidationException returns 422
+        if ($exception instanceof \Toporia\Framework\Http\ValidationException) {
+            return 422;
+        }
+
+        // Use exception code if it's a valid HTTP status
+        $code = $exception->getCode();
+        if ($code >= 400 && $code < 600) {
+            return $code;
+        }
+
         return 500;
     }
 }

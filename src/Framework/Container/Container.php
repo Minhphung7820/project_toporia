@@ -232,7 +232,15 @@ final class Container implements ContainerInterface
             $type = $parameter->getType();
 
             if ($type instanceof ReflectionNamedType && !$type->isBuiltin()) {
-                $dependencies[] = $this->get($type->getName());
+                $className = $type->getName();
+                $instance = $this->get($className);
+
+                // Auto-validate FormRequest instances
+                if ($instance instanceof \Toporia\Framework\Http\FormRequest) {
+                    $instance->validate();
+                }
+
+                $dependencies[] = $instance;
                 continue;
             }
 

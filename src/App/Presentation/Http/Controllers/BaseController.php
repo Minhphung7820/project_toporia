@@ -8,16 +8,18 @@ use Toporia\Framework\Http\Request;
 use Toporia\Framework\Http\Response;
 
 /**
- * Base Controller (Legacy Support)
+ * Base Controller
  *
- * @deprecated Use ControllerHelpers trait instead for better flexibility.
+ * Provides helper methods for controllers via ControllerHelpers trait.
  *
- * This class is kept for backward compatibility with existing controllers.
- * New controllers should use method injection or ControllerHelpers trait.
+ * You can choose between two approaches:
+ * 1. Extend BaseController (traditional MVC)
+ * 2. Use ControllerHelpers trait directly (modern, more flexible)
  *
- * Migration guide:
+ * Both approaches are valid and supported.
+ *
+ * Example 1 - Extending BaseController:
  * ```php
- * // Old way (still works):
  * final class MyController extends BaseController
  * {
  *     public function index()
@@ -25,8 +27,10 @@ use Toporia\Framework\Http\Response;
  *         return $this->view('products/index');
  *     }
  * }
+ * ```
  *
- * // New way (recommended):
+ * Example 2 - Using trait directly:
+ * ```php
  * final class MyController
  * {
  *     use ControllerHelpers;
