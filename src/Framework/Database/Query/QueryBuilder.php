@@ -115,6 +115,55 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
+     * Add a raw SELECT expression.
+     *
+     * @param string $expression Raw SQL expression (e.g., "COUNT(*) AS count")
+     * @param array<mixed> $bindings Optional bindings for the expression
+     * @return $this
+     */
+    public function selectRaw(string $expression, array $bindings = []): self
+    {
+        $this->columns[] = $expression;
+
+        foreach ($bindings as $binding) {
+            $this->bindings[] = $binding;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Get the table name for this query.
+     *
+     * @return string|null
+     */
+    public function getTable(): ?string
+    {
+        return $this->table;
+    }
+
+    /**
+     * Get the columns for this query.
+     *
+     * @return array<string>
+     */
+    public function getColumns(): array
+    {
+        return $this->columns;
+    }
+
+    /**
+     * Add a binding to the query.
+     *
+     * @param mixed $value Binding value
+     * @return void
+     */
+    public function addBinding(mixed $value): void
+    {
+        $this->bindings[] = $value;
+    }
+
+    /**
      * Add a basic WHERE clause.
      *
      * Supports both:
@@ -203,6 +252,28 @@ class QueryBuilder implements QueryBuilderInterface
             'column' => $column,
             'boolean' => 'AND'
         ];
+
+        return $this;
+    }
+
+    /**
+     * Add a raw WHERE clause.
+     *
+     * @param string $sql Raw SQL condition (e.g., "price > ? AND stock < ?")
+     * @param array<mixed> $bindings Bindings for the placeholders
+     * @return $this
+     */
+    public function whereRaw(string $sql, array $bindings = []): self
+    {
+        $this->wheres[] = [
+            'type' => 'raw',
+            'sql' => $sql,
+            'boolean' => 'AND'
+        ];
+
+        foreach ($bindings as $binding) {
+            $this->bindings[] = $binding;
+        }
 
         return $this;
     }
@@ -538,6 +609,7 @@ class QueryBuilder implements QueryBuilderInterface
                 'in'       => sprintf(' %s %s IN (%s)', $boolean, $where['column'], implode(', ', array_fill(0, count($where['values']), '?'))),
                 'null'     => sprintf(' %s %s IS NULL', $boolean, $where['column']),
                 'not_null' => sprintf(' %s %s IS NOT NULL', $boolean, $where['column']),
+                'raw'      => sprintf(' %s %s', $boolean, $where['sql']),
                 default    => ''
             };
         }

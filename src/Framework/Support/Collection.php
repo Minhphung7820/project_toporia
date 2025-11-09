@@ -84,6 +84,18 @@ class Collection implements CollectionInterface, \JsonSerializable
         return $this->items;
     }
 
+    /**
+     * Convert the collection to a plain array.
+     *
+     * Alias of all() for compatibility with Paginator and other components.
+     *
+     * @return array<int|string, TValue>
+     */
+    public function toArray(): array
+    {
+        return $this->all();
+    }
+
     public function collect(): Collection
     {
         return $this;
@@ -1397,21 +1409,42 @@ class Collection implements CollectionInterface, \JsonSerializable
     /**
      * Create paginator result.
      */
-    public function paginate(int $perPage, int $page = 1): array
+    /**
+     * Paginate the collection.
+     *
+     * Returns a Paginator value object for consistent pagination across the framework.
+     *
+     * Clean Architecture & SOLID:
+     * - Reuses Paginator class (DRY principle)
+     * - Single source of truth for pagination logic
+     * - Consistent API with ModelQueryBuilder::paginate()
+     *
+     * @param int $perPage Number of items per page
+     * @param int $page Current page number (1-indexed)
+     * @param string|null $path Base URL path for pagination links
+     * @return \Toporia\Framework\Support\Pagination\Paginator<TValue>
+     */
+    public function paginate(int $perPage = 15, int $page = 1, ?string $path = null): \Toporia\Framework\Support\Pagination\Paginator
     {
+        // Validate parameters
+        if ($perPage < 1) {
+            throw new \InvalidArgumentException('Per page must be at least 1');
+        }
+        if ($page < 1) {
+            throw new \InvalidArgumentException('Page must be at least 1');
+        }
+
         $offset = ($page - 1) * $perPage;
         $items = $this->slice($offset, $perPage);
         $total = $this->count();
 
-        return [
-            'data' => $items,
-            'current_page' => $page,
-            'per_page' => $perPage,
-            'total' => $total,
-            'last_page' => (int) ceil($total / $perPage),
-            'from' => $offset + 1,
-            'to' => min($offset + $perPage, $total),
-        ];
+        return new \Toporia\Framework\Support\Pagination\Paginator(
+            items: $items,
+            total: $total,
+            perPage: $perPage,
+            currentPage: $page,
+            path: $path
+        );
     }
 
     /**

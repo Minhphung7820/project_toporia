@@ -982,7 +982,14 @@ abstract class Model implements ModelInterface
     {
         $out = [];
         foreach ($rows as $data) {
-            $m = new static($data);
+            $m = new static([]);
+
+            // Bypass mass assignment by setting attributes directly
+            // This allows dynamic columns from withCount(), withSum(), selectRaw(), etc.
+            foreach ($data as $key => $value) {
+                $m->setAttribute((string) $key, $value);
+            }
+
             $m->exists = true;
             $m->syncOriginal();
             $out[] = $m;
@@ -1202,21 +1209,9 @@ abstract class Model implements ModelInterface
      * // Varargs style
      * Product::with('childrens', 'category')->get()
      */
-    public static function with(string|array ...$relations): ModelQueryBuilder
+    public static function with(string|array|callable ...$relations): ModelQueryBuilder
     {
-        // Normalize input to array
-        // Support: with('rel1', 'rel2') OR with(['rel1', 'rel2'])
-        $normalized = [];
-
-        foreach ($relations as $relation) {
-            if (is_array($relation)) {
-                // Array format: ['childrens', 'category']
-                $normalized = array_merge($normalized, $relation);
-            } else {
-                // String format: 'childrens'
-                $normalized[] = $relation;
-            }
-        }
+        $normalized = static::normalizeEagerLoadRelations($relations);
 
         $query = static::query();
         $query->setEagerLoad($normalized);
@@ -1224,32 +1219,80 @@ abstract class Model implements ModelInterface
     }
 
     /**
+     * Normalize eager load relations into consistent format.
+     *
+     * Converts all input formats into: ['relation' => callback|null, ...]
+     * Performance: O(n), Memory: Minimal
+     *
+     * @param array $relations Raw relations input
+     * @return array<string, callable|null> Normalized relations
+     */
+    public static function normalizeEagerLoadRelations(array $relations): array
+    {
+        $normalized = [];
+
+        // Special case: with('childrens', function($q) { ... })
+        if (count($relations) === 2 && is_string($relations[0]) && is_callable($relations[1])) {
+            return [$relations[0] => $relations[1]];
+        }
+
+        foreach ($relations as $key => $value) {
+            // Case 1: Array with callback: ['childrens' => function($q) { ... }]
+            if (is_string($key) && is_callable($value)) {
+                $normalized[$key] = $value;
+            }
+            // Case 2: Array with string: ['childrens', 'category']
+            elseif (is_int($key) && is_string($value)) {
+                $normalized[$value] = null;
+            }
+            // Case 3: Nested array (from varargs): [['childrens', 'category']]
+            elseif (is_int($key) && is_array($value)) {
+                $nested = static::normalizeEagerLoadRelations($value);
+                $normalized = array_merge($normalized, $nested);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
      * Eager load relationships for a collection of models.
      *
      * This method loads relationships for all models in the collection efficiently:
-     * 1. Parse relationship syntax (with optional column selection)
+     * 1. Parse relationship syntax (with optional column selection or callback)
      * 2. For each relationship, call the relation method on a model instance
-     * 3. Apply column selection if specified
+     * 3. Apply column selection or callback constraints if specified
      * 4. Use addEagerConstraints() to load related models in bulk
      * 5. Use match() to associate related models with parent models
      *
-     * Supports Laravel-style column selection:
+     * Supports:
      * - 'childrens' -> Load all columns
      * - 'childrens:id,title' -> Load only id and title columns
+     * - 'childrens' => function($q) { ... } -> Apply callback constraints
      *
      * SOLID Principles:
      * - Single Responsibility: Only handles eager loading logic
-     * - Open/Closed: Column selection added without modifying relation classes
+     * - Open/Closed: Column selection and callbacks added without modifying relation classes
      *
      * @param ModelCollection<static> $models Collection of models to load relationships for
-     * @param array<string> $relations Relationship names to load (may include :columns syntax)
+     * @param array<string|callable> $relations Relationship names/callbacks
      * @return void
      */
     public static function eagerLoadRelations(ModelCollection $models, array $relations): void
     {
-        foreach ($relations as $relationSpec) {
-            // Parse relationship:columns syntax
-            [$name, $columns] = static::parseRelationSpec($relationSpec);
+        foreach ($relations as $relationSpec => $constraint) {
+            // Determine relation name and constraint type
+            if (is_callable($constraint)) {
+                // Format: 'childrens' => function($q) { ... }
+                $name = $relationSpec;
+                $callback = $constraint;
+                $columns = null;
+            } else {
+                // Format: 'childrens' or 'childrens:id,title'
+                $name = is_string($relationSpec) ? $relationSpec : $constraint;
+                [$name, $columns] = static::parseRelationSpec($name);
+                $callback = null;
+            }
 
             // Get a model instance to build the relation
             $model = $models->first();
@@ -1268,6 +1311,11 @@ abstract class Model implements ModelInterface
             // Check if it's actually a relation
             if (!$relation instanceof Relations\RelationInterface) {
                 continue;
+            }
+
+            // Apply callback constraints if provided
+            if ($callback !== null) {
+                $callback($relation->getQuery());
             }
 
             // Apply column selection if specified
