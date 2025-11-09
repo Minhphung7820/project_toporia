@@ -164,18 +164,36 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * Add a basic WHERE clause.
+     * Add a WHERE clause.
      *
-     * Supports both:
-     * - where('col', '=', 10)
-     * - where('col', 10)    // operator defaults to '='
+     * Supports multiple syntaxes:
+     * - where('col', '=', 10)         // Basic comparison
+     * - where('col', 10)              // Operator defaults to '='
+     * - where(function($q) { ... })   // Nested closure (Laravel-style)
      *
-     * @param string $column
-     * @param mixed  $operator
-     * @param mixed  $value
+     * Nested closures allow complex conditions:
+     * ```php
+     * $query->where('status', 'active')
+     *       ->where(function($q) {
+     *           $q->where('price', '>', 100)
+     *             ->orWhere('featured', true);
+     *       });
+     * // WHERE status = 'active' AND (price > 100 OR featured = true)
+     * ```
+     *
+     * Performance: O(1) - Closures are compiled to SQL, not executed repeatedly
+     *
+     * @param string|\Closure $column Column name or closure
+     * @param mixed           $operator Operator or value
+     * @param mixed           $value Value (optional)
      */
-    public function where(string $column, mixed $operator, mixed $value = null): self
+    public function where(string|\Closure $column, mixed $operator = null, mixed $value = null): self
     {
+        // Handle closure-based WHERE (nested conditions)
+        if ($column instanceof \Closure) {
+            return $this->whereNested($column, 'AND');
+        }
+
         // Handle where($column, $value) syntax
         if ($value === null) {
             $value = $operator;
@@ -196,12 +214,34 @@ class QueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * Add a basic OR WHERE clause.
+     * Add an OR WHERE clause.
      *
-     * Same semantics as where(), joined with OR.
+     * Supports both:
+     * - orWhere('col', '=', 10)       // Basic OR comparison
+     * - orWhere('col', 10)            // Operator defaults to '='
+     * - orWhere(function($q) { ... }) // Nested OR closure
+     *
+     * Example:
+     * ```php
+     * $query->where('status', 'active')
+     *       ->orWhere(function($q) {
+     *           $q->where('role', 'admin')
+     *             ->where('verified', true);
+     *       });
+     * // WHERE status = 'active' OR (role = 'admin' AND verified = true)
+     * ```
+     *
+     * @param string|\Closure $column Column name or closure
+     * @param mixed           $operator Operator or value
+     * @param mixed           $value Value (optional)
      */
-    public function orWhere(string $column, mixed $operator, mixed $value = null): self
+    public function orWhere(string|\Closure $column, mixed $operator = null, mixed $value = null): self
     {
+        // Handle closure-based OR WHERE
+        if ($column instanceof \Closure) {
+            return $this->whereNested($column, 'OR');
+        }
+
         if ($value === null) {
             $value = $operator;
             $operator = '=';
@@ -252,6 +292,49 @@ class QueryBuilder implements QueryBuilderInterface
             'column' => $column,
             'boolean' => 'AND'
         ];
+
+        return $this;
+    }
+
+    /**
+     * Add a nested WHERE clause group.
+     *
+     * This method is called internally by where() and orWhere() when a closure is passed.
+     * It creates a sub-query builder, passes it to the closure, then wraps the result in parentheses.
+     *
+     * Architecture:
+     * - Single Responsibility: Only handles nested WHERE logic
+     * - Open/Closed: Closures can build any complexity without changing this method
+     * - Dependency Inversion: Depends on QueryBuilder abstraction
+     *
+     * Performance: O(1) - Creates one nested query group regardless of closure complexity
+     *
+     * @param \Closure $callback Callback receiving a fresh QueryBuilder
+     * @param string   $boolean Boolean operator (AND/OR)
+     * @return $this
+     *
+     * @internal
+     */
+    protected function whereNested(\Closure $callback, string $boolean = 'AND'): self
+    {
+        // Create a fresh query builder for the nested conditions
+        $query = $this->newQuery();
+        $query->table($this->table);
+
+        // Execute closure to build nested conditions
+        $callback($query);
+
+        // Add the nested query to our wheres
+        $this->wheres[] = [
+            'type' => 'nested',
+            'query' => $query,
+            'boolean' => $boolean
+        ];
+
+        // Merge bindings from nested query
+        foreach ($query->getBindings() as $binding) {
+            $this->bindings[] = $binding;
+        }
 
         return $this;
     }
@@ -592,8 +675,23 @@ class QueryBuilder implements QueryBuilderInterface
 
     /**
      * Compile WHERE clauses.
+     *
+     * Supports nested WHERE groups with proper parenthesization:
+     * - Basic: WHERE column = ?
+     * - Nested: WHERE (price > ? OR featured = ?)
+     * - Multi-level: WHERE status = ? AND (price > ? OR (category = ? AND stock > ?))
+     *
+     * Performance: O(N) where N = total WHERE clauses (flat + nested)
+     * Recursive compilation is optimized via tail recursion pattern
+     *
+     * SOLID Principles:
+     * - Single Responsibility: Only compiles WHERE clauses
+     * - Open/Closed: New WHERE types via match expression
+     * - Liskov Substitution: All WHERE types follow same contract
+     *
+     * Note: Protected to allow nested queries to compile their WHERE clauses
      */
-    private function compileWheres(): string
+    protected function compileWheres(): string
     {
         if (empty($this->wheres)) {
             return '';
@@ -610,11 +708,41 @@ class QueryBuilder implements QueryBuilderInterface
                 'null'     => sprintf(' %s %s IS NULL', $boolean, $where['column']),
                 'not_null' => sprintf(' %s %s IS NOT NULL', $boolean, $where['column']),
                 'raw'      => sprintf(' %s %s', $boolean, $where['sql']),
+                'nested'   => $this->compileNestedWhere($where, $boolean),
                 default    => ''
             };
         }
 
         return $sql;
+    }
+
+    /**
+     * Compile a nested WHERE clause.
+     *
+     * Takes a nested query and wraps its WHERE conditions in parentheses.
+     * Example: AND (price > ? OR featured = ?)
+     *
+     * @param array  $where   WHERE clause data containing 'query' key
+     * @param string $boolean Boolean operator (AND/OR/WHERE)
+     * @return string Compiled SQL fragment
+     */
+    private function compileNestedWhere(array $where, string $boolean): string
+    {
+        /** @var QueryBuilder $nestedQuery */
+        $nestedQuery = $where['query'];
+
+        // Get the nested query's WHERE clauses
+        $nestedWheres = $nestedQuery->compileWheres();
+
+        // Remove the leading 'WHERE' keyword from nested query
+        $nestedWheres = preg_replace('/^\s*WHERE\s+/', '', $nestedWheres);
+
+        // Wrap in parentheses if not empty
+        if (empty(trim($nestedWheres))) {
+            return '';
+        }
+
+        return sprintf(' %s (%s)', $boolean, $nestedWheres);
     }
 
     /**

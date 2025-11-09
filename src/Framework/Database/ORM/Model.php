@@ -1159,6 +1159,227 @@ abstract class Model implements ModelInterface
     }
 
     /**
+     * Define a has-one-through relationship.
+     *
+     * Example: Country → User → Phone
+     * Country::hasOneThrough(Phone::class, User::class)
+     *
+     * @param class-string<Model> $related Related model class (Phone)
+     * @param class-string<Model> $through Through model class (User)
+     * @param string|null $firstKey Foreign key on through table (users.country_id)
+     * @param string|null $secondKey Foreign key on related table (phones.user_id)
+     * @param string|null $localKey Local key on parent table (countries.id)
+     * @param string|null $secondLocalKey Local key on through table (users.id)
+     * @return Relations\HasOneThrough
+     */
+    protected function hasOneThrough(
+        string $related,
+        string $through,
+        ?string $firstKey = null,
+        ?string $secondKey = null,
+        ?string $localKey = null,
+        ?string $secondLocalKey = null
+    ): Relations\HasOneThrough {
+        $firstKey = $firstKey ?? $this->getForeignKey();
+        $secondKey = $secondKey ?? $this->getRelatedForeignKey($through);
+        $localKey = $localKey ?? static::$primaryKey;
+        $secondLocalKey = $secondLocalKey ?? call_user_func([$through, 'getPrimaryKey']);
+
+        $query = call_user_func([$related, 'query']);
+
+        return new Relations\HasOneThrough(
+            $query,
+            $this,
+            $related,
+            $through,
+            $firstKey,
+            $secondKey,
+            $localKey,
+            $secondLocalKey
+        );
+    }
+
+    /**
+     * Define a has-many-through relationship.
+     *
+     * Example: Country → Users → Posts
+     * Country::hasManyThrough(Post::class, User::class)
+     *
+     * @param class-string<Model> $related Related model class (Post)
+     * @param class-string<Model> $through Through model class (User)
+     * @param string|null $firstKey Foreign key on through table (users.country_id)
+     * @param string|null $secondKey Foreign key on related table (posts.user_id)
+     * @param string|null $localKey Local key on parent table (countries.id)
+     * @param string|null $secondLocalKey Local key on through table (users.id)
+     * @return Relations\HasManyThrough
+     */
+    protected function hasManyThrough(
+        string $related,
+        string $through,
+        ?string $firstKey = null,
+        ?string $secondKey = null,
+        ?string $localKey = null,
+        ?string $secondLocalKey = null
+    ): Relations\HasManyThrough {
+        $firstKey = $firstKey ?? $this->getForeignKey();
+        $secondKey = $secondKey ?? $this->getRelatedForeignKey($through);
+        $localKey = $localKey ?? static::$primaryKey;
+        $secondLocalKey = $secondLocalKey ?? call_user_func([$through, 'getPrimaryKey']);
+
+        $query = call_user_func([$related, 'query']);
+
+        return new Relations\HasManyThrough(
+            $query,
+            $this,
+            $related,
+            $through,
+            $firstKey,
+            $secondKey,
+            $localKey,
+            $secondLocalKey
+        );
+    }
+
+    /**
+     * Define a polymorphic one-to-one relationship.
+     *
+     * Example: Post/Video → Image
+     * Post::morphOne(Image::class, 'imageable')
+     *
+     * @param class-string<Model> $related Related model class (Image)
+     * @param string $morphName Morph name ('imageable')
+     * @param string|null $morphType Type column (imageable_type)
+     * @param string|null $morphId ID column (imageable_id)
+     * @param string|null $localKey Local key (id)
+     * @return Relations\MorphOne
+     */
+    protected function morphOne(
+        string $related,
+        string $morphName,
+        ?string $morphType = null,
+        ?string $morphId = null,
+        ?string $localKey = null
+    ): Relations\MorphOne {
+        $query = call_user_func([$related, 'query']);
+
+        return new Relations\MorphOne(
+            $query,
+            $this,
+            $related,
+            $morphName,
+            $morphType,
+            $morphId,
+            $localKey
+        );
+    }
+
+    /**
+     * Define a polymorphic one-to-many relationship.
+     *
+     * Example: Post/Video → Comments
+     * Post::morphMany(Comment::class, 'commentable')
+     *
+     * @param class-string<Model> $related Related model class (Comment)
+     * @param string $morphName Morph name ('commentable')
+     * @param string|null $morphType Type column (commentable_type)
+     * @param string|null $morphId ID column (commentable_id)
+     * @param string|null $localKey Local key (id)
+     * @return Relations\MorphMany
+     */
+    protected function morphMany(
+        string $related,
+        string $morphName,
+        ?string $morphType = null,
+        ?string $morphId = null,
+        ?string $localKey = null
+    ): Relations\MorphMany {
+        $query = call_user_func([$related, 'query']);
+
+        return new Relations\MorphMany(
+            $query,
+            $this,
+            $related,
+            $morphName,
+            $morphType,
+            $morphId,
+            $localKey
+        );
+    }
+
+    /**
+     * Define a polymorphic many-to-many relationship.
+     *
+     * Example: Post/Video ↔ Tags
+     * Post::morphToMany(Tag::class, 'taggable')
+     *
+     * @param class-string<Model> $related Related model class (Tag)
+     * @param string $morphName Morph name ('taggable')
+     * @param string|null $pivotTable Pivot table (taggables)
+     * @param string|null $morphType Type column (taggable_type)
+     * @param string|null $morphId ID column (taggable_id)
+     * @param string|null $relatedKey Related key (tag_id)
+     * @param string|null $parentKey Parent key (id)
+     * @param string|null $relatedPrimaryKey Related primary key (id)
+     * @return Relations\MorphToMany
+     */
+    protected function morphToMany(
+        string $related,
+        string $morphName,
+        ?string $pivotTable = null,
+        ?string $morphType = null,
+        ?string $morphId = null,
+        ?string $relatedKey = null,
+        ?string $parentKey = null,
+        ?string $relatedPrimaryKey = null
+    ): Relations\MorphToMany {
+        $query = call_user_func([$related, 'query']);
+
+        return new Relations\MorphToMany(
+            $query,
+            $this,
+            $related,
+            $morphName,
+            $pivotTable,
+            $morphType,
+            $morphId,
+            $relatedKey,
+            $parentKey,
+            $relatedPrimaryKey
+        );
+    }
+
+    /**
+     * Define a polymorphic inverse relationship.
+     *
+     * Example: Comment → Post/Video
+     * Comment::morphTo('commentable')
+     *
+     * @param string $morphName Morph name ('commentable')
+     * @param string|null $morphType Type column (commentable_type)
+     * @param string|null $morphId ID column (commentable_id)
+     * @param string|null $ownerKey Owner key (id)
+     * @return Relations\MorphTo
+     */
+    protected function morphTo(
+        string $morphName,
+        ?string $morphType = null,
+        ?string $morphId = null,
+        ?string $ownerKey = null
+    ): Relations\MorphTo {
+        // MorphTo doesn't need a specific query - it will be created dynamically
+        $query = static::query();
+
+        return new Relations\MorphTo(
+            $query,
+            $this,
+            $morphName,
+            $morphType,
+            $morphId,
+            $ownerKey
+        );
+    }
+
+    /**
      * Eager load relationships.
      *
      * @param array<string> $relations Relationship names to load
