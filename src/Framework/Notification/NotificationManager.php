@@ -64,6 +64,21 @@ final class NotificationManager implements NotificationManagerInterface
      */
     public function send(NotifiableInterface $notifiable, NotificationInterface $notification): void
     {
+        // Check if notification should be queued
+        if ($notification->shouldQueue()) {
+            $this->sendQueued($notifiable, $notification);
+            return;
+        }
+
+        // Send immediately (sync)
+        $this->sendNow($notifiable, $notification);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function sendNow(NotifiableInterface $notifiable, NotificationInterface $notification): void
+    {
         // Get channels for this notification
         $channels = $notification->via($notifiable);
 
@@ -84,12 +99,54 @@ final class NotificationManager implements NotificationManagerInterface
     }
 
     /**
+     * Send notification via queue (asynchronous).
+     *
+     * @param NotifiableInterface $notifiable
+     * @param NotificationInterface $notification
+     * @return void
+     */
+    private function sendQueued(NotifiableInterface $notifiable, NotificationInterface $notification): void
+    {
+        // Create job
+        $job = Jobs\SendNotificationJob::make($notifiable, $notification);
+
+        // Set queue name from notification
+        $job->onQueue($notification->getQueueName());
+
+        // Dispatch to queue
+        dispatch($job);
+    }
+
+    /**
      * {@inheritdoc}
+     *
+     * Performance Optimization:
+     * - If queued: Dispatches single bulk job instead of N separate jobs
+     * - If sync: Sends immediately to each notifiable
+     *
+     * Before: O(N) job dispatches
+     * After:  O(1) job dispatch for queued, O(N) for sync
      */
     public function sendToMany(iterable $notifiables, NotificationInterface $notification): void
     {
+        // Convert to array for count and bulk processing
+        $notifiables = is_array($notifiables) ? $notifiables : iterator_to_array($notifiables);
+
+        if (empty($notifiables)) {
+            return; // Nothing to send
+        }
+
+        // If queued, dispatch single bulk job (OPTIMIZED)
+        if ($notification->shouldQueue()) {
+            $job = Jobs\SendBulkNotificationJob::make($notifiables, $notification);
+            $job->onQueue($notification->getQueueName());
+            dispatch($job);
+            return;
+        }
+
+        // Sync: send to each immediately
         foreach ($notifiables as $notifiable) {
-            $this->send($notifiable, $notification);
+            $this->sendNow($notifiable, $notification);
         }
     }
 
@@ -115,6 +172,24 @@ final class NotificationManager implements NotificationManagerInterface
     public function getDefaultChannel(): string
     {
         return $this->defaultChannel;
+    }
+
+    /**
+     * Create anonymous notifiable for specific channel route.
+     *
+     * Allows sending notifications to arbitrary channels without a model:
+     * ```php
+     * Notification::route('mail', 'admin@example.com')
+     *     ->notify(new OrderShipped());
+     * ```
+     *
+     * @param string $channel Channel name
+     * @param mixed $route Route value (email, phone, etc.)
+     * @return AnonymousNotifiable
+     */
+    public function route(string $channel, mixed $route): AnonymousNotifiable
+    {
+        return (new AnonymousNotifiable)->route($channel, $route);
     }
 
     /**
@@ -151,7 +226,9 @@ final class NotificationManager implements NotificationManagerInterface
     /**
      * Create Mail channel.
      *
-     * @param array $config
+     * Injects mail configuration for DIP compliance.
+     *
+     * @param array $config Channel-specific config
      * @return ChannelInterface
      */
     private function createMailChannel(array $config): ChannelInterface
@@ -162,7 +239,13 @@ final class NotificationManager implements NotificationManagerInterface
             throw new \RuntimeException('Mail channel requires MailManager in container');
         }
 
-        return new Channels\MailChannel($mailer);
+        // Get mail config from container
+        $mailConfig = [];
+        if ($this->container?->has('config')) {
+            $mailConfig = $this->container->get('config')->get('mail', []);
+        }
+
+        return new Channels\MailChannel($mailer, $mailConfig);
     }
 
     /**
@@ -207,6 +290,8 @@ final class NotificationManager implements NotificationManagerInterface
     /**
      * Handle channel delivery error.
      *
+     * Logs error and dispatches NotificationFailed event for monitoring.
+     *
      * @param string $channelName
      * @param NotifiableInterface $notifiable
      * @param NotificationInterface $notification
@@ -227,6 +312,16 @@ final class NotificationManager implements NotificationManagerInterface
             $exception->getMessage()
         ));
 
-        // TODO: Dispatch NotificationFailed event
+        // Dispatch event for monitoring/retry logic
+        if ($this->container?->has('events')) {
+            $event = new Events\NotificationFailed(
+                notifiable: $notifiable,
+                notification: $notification,
+                channel: $channelName,
+                exception: $exception
+            );
+
+            $this->container->get('events')->dispatch($event);
+        }
     }
 }

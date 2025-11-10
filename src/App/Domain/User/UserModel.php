@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\User;
 
 use Toporia\Framework\Database\ORM\Model;
+use Toporia\Framework\Notification\Contracts\NotifiableInterface;
+use Toporia\Framework\Notification\Notifiable;
 
 /**
  * User ORM Model - Demo of Auto Table Name & Auto-Fillable.
@@ -19,6 +21,9 @@ use Toporia\Framework\Database\ORM\Model;
  * - Follows Laravel conventions
  * - Easy to override when needed
  *
+ * Features:
+ * - Notifiable: Can send/receive notifications via email, database, etc.
+ *
  * @property int $id
  * @property string $name
  * @property string $email
@@ -27,8 +32,9 @@ use Toporia\Framework\Database\ORM\Model;
  * @property string $created_at
  * @property string $updated_at
  */
-class UserModel extends Model
+class UserModel extends Model implements NotifiableInterface
 {
+    use Notifiable;
     // =========================================================================
     // NO CONFIGURATION NEEDED!
     // =========================================================================
@@ -64,5 +70,20 @@ class UserModel extends Model
     public function isVerified(): bool
     {
         return !empty($this->email_verified_at);
+    }
+
+    /**
+     * Route notification to specific channel.
+     *
+     * @param string $channel Notification channel (mail, sms, slack, database)
+     * @return mixed Channel-specific routing data
+     */
+    public function routeNotificationFor(string $channel): mixed
+    {
+        return match($channel) {
+            'mail' => $this->email,
+            'database' => $this->id,
+            default => null
+        };
     }
 }

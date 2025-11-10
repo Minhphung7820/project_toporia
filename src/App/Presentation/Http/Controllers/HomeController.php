@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Presentation\Http\Controllers;
 
 use App\Domain\Product\ProductModel;
+use App\Domain\User\UserModel;
 use App\Jobs\SendEmailJob;
+use App\Notifications\UserCreatedNotification;
 use Toporia\Framework\Http\Request;
 use Toporia\Framework\Http\Response;
 use Toporia\Framework\Queue\Contracts\QueueManagerInterface;
@@ -35,7 +37,24 @@ final class HomeController extends BaseController
      */
     public function index(Request $request)
     {
-        // Laravel-style static dispatch - clean and elegant! 🚀
+        // DEMO: Create user and send notification via queue
+        // This will create ONE job per request
+        // $user = UserModel::create([
+        //     'name' => 'New User ' . uniqid(),
+        //     'email' => 'minhphung485@gmail.com',
+        //     'password' => password_hash('secret123', PASSWORD_BCRYPT)
+        // ]);
+
+        // Send notification FROM user model TO admin email via QUEUE
+        // $user->notifyLater(
+        //     new UserCreatedNotification(
+        //         userName: $user->name,
+        //         userEmail: $user->email,
+        //         recipientEmail: 'minhphung485@gmail.com'
+        //     ),
+        //     queueName: 'notifications'
+        // );
+
         SendEmailJob::dispatch(
             to: 'minhphung485@gmail.com',
             subject: 'Test Email from Toporia Framework',

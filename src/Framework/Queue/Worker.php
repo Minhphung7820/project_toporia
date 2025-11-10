@@ -11,8 +11,18 @@ use Toporia\Framework\Queue\Contracts\{JobInterface, QueueInterface};
 /**
  * Queue Worker
  *
- * Processes jobs from the queue.
+ * Processes jobs from the queue with multi-queue support.
  * Handles job execution, retries, and failure management.
+ *
+ * Multi-Queue Features:
+ * - Supports single or multiple queues with priority order
+ * - First queue in array has highest priority
+ * - Efficient round-robin polling across queues
+ *
+ * Performance:
+ * - O(Q) per iteration where Q = number of queues
+ * - Graceful shutdown support (waits for current job)
+ * - Configurable sleep between iterations
  */
 final class Worker
 {
@@ -33,20 +43,29 @@ final class Worker
     }
 
     /**
-     * Start processing jobs from the queue
+     * Start processing jobs from the queue(s).
      *
-     * @param string $queue Queue name
+     * Supports both single queue (string) and multiple queues (array) with priority.
+     * When multiple queues are provided, processes in priority order (first = highest).
+     *
+     * Performance: O(Q) per iteration where Q = number of queues
+     *
+     * @param string|array<string> $queues Queue name(s) - string or array
      * @return void
      */
-    public function work(string $queue = 'default'): void
+    public function work(string|array $queues = 'default'): void
     {
-        $this->logger->info("Queue worker started. Listening on queue: {$queue}");
+        // Normalize to array
+        $queueArray = is_array($queues) ? $queues : [$queues];
+
+        $queueNames = implode(',', $queueArray);
+        $this->logger->info("Queue worker started. Listening on queue: {$queueNames}");
 
         while (!$this->shouldQuit) {
-            $job = $this->queue->pop($queue);
+            $job = $this->getNextJob($queueArray);
 
             if ($job === null) {
-                // No job available, sleep (don't spam logs)
+                // No job available on any queue, sleep (don't spam logs)
                 $this->sleep();
                 continue;
             }
@@ -62,6 +81,31 @@ final class Worker
         }
 
         $this->logger->info("Queue worker stopped. Processed {$this->processed} jobs.");
+    }
+
+    /**
+     * Get next job from queues in priority order.
+     *
+     * Checks queues in order and returns first available job.
+     * This ensures high-priority queues are processed first.
+     *
+     * Performance: O(Q) where Q = number of queues
+     *
+     * @param array<string> $queues Queue names in priority order
+     * @return JobInterface|null
+     */
+    private function getNextJob(array $queues): ?JobInterface
+    {
+        // Try each queue in priority order
+        foreach ($queues as $queueName) {
+            $job = $this->queue->pop($queueName);
+
+            if ($job !== null) {
+                return $job; // Found a job, return immediately
+            }
+        }
+
+        return null; // No jobs available on any queue
     }
 
     /**

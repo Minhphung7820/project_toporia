@@ -14,11 +14,22 @@ use Toporia\Framework\Queue\Worker;
  *
  * Process jobs from the queue with graceful shutdown support.
  *
+ * Multi-Queue Support (Laravel-style):
+ * - Supports comma-separated queue names with priority order
+ * - Processes queues in order: first queue has highest priority
+ * - Example: --queue=emails,default,notifications
+ *
  * Usage:
  *   php console queue:work
  *   php console queue:work --queue=emails
+ *   php console queue:work --queue=emails,default,notifications
  *   php console queue:work --max-jobs=100 --sleep=5
  *   php console queue:work --stop-when-empty
+ *
+ * Performance Optimizations:
+ * - O(1) queue lookup per iteration
+ * - Priority-based processing (first queue checked first)
+ * - Efficient polling with configurable sleep
  */
 final class QueueWorkCommand extends Command
 {
@@ -35,10 +46,13 @@ final class QueueWorkCommand extends Command
     public function handle(): int
     {
         // Parse options
-        $queueName = $this->option('queue', 'default');
+        $queuesOption = $this->option('queue', 'default');
         $maxJobs = (int) $this->option('max-jobs', 0); // 0 = unlimited
         $sleep = (int) $this->option('sleep', 1);
         $stopWhenEmpty = $this->hasOption('stop-when-empty');
+
+        // Parse multiple queues (comma-separated)
+        $queues = $this->parseQueues($queuesOption);
 
         // Get queue instance
         try {
@@ -55,14 +69,14 @@ final class QueueWorkCommand extends Command
         $this->setupSignalHandlers($worker);
 
         // Display configuration
-        $this->displayHeader($queueName, $maxJobs, $sleep, $stopWhenEmpty);
+        $this->displayHeader($queues, $maxJobs, $sleep, $stopWhenEmpty);
 
         // Start processing
         try {
             if ($stopWhenEmpty) {
-                $this->processUntilEmpty($worker, $queueName);
+                $this->processUntilEmpty($worker, $queues);
             } else {
-                $worker->work($queueName);
+                $worker->work($queues);
             }
         } catch (\Throwable $e) {
             $this->newLine();
@@ -75,6 +89,29 @@ final class QueueWorkCommand extends Command
         $this->displaySummary($worker);
 
         return 0;
+    }
+
+    /**
+     * Parse queue option into array of queue names.
+     *
+     * Supports comma-separated queues with priority order.
+     * Example: "emails,default,notifications" -> ["emails", "default", "notifications"]
+     *
+     * Performance: O(N) where N = number of queues
+     *
+     * @param string $queuesOption
+     * @return array<string>
+     */
+    private function parseQueues(string $queuesOption): array
+    {
+        // Split by comma and trim whitespace
+        $queues = array_map('trim', explode(',', $queuesOption));
+
+        // Remove empty values and duplicates
+        $queues = array_filter(array_unique($queues));
+
+        // Re-index array
+        return array_values($queues);
     }
 
     /**
@@ -104,21 +141,32 @@ final class QueueWorkCommand extends Command
     }
 
     /**
-     * Process jobs until queue is empty
+     * Process jobs until all queues are empty.
+     *
+     * Processes queues in priority order (first queue checked first).
      *
      * @param Worker $worker
-     * @param string $queueName
+     * @param array<string> $queues Queue names in priority order
      * @return void
      */
-    private function processUntilEmpty(Worker $worker, string $queueName): void
+    private function processUntilEmpty(Worker $worker, array $queues): void
     {
         $processed = 0;
 
         while (!$this->shouldQuit) {
-            $job = $worker->getQueue()->pop($queueName);
+            $job = null;
+
+            // Try each queue in priority order
+            foreach ($queues as $queueName) {
+                $job = $worker->getQueue()->pop($queueName);
+
+                if ($job !== null) {
+                    break; // Found a job, stop checking other queues
+                }
+            }
 
             if ($job === null) {
-                $this->info("Queue is empty. Stopping.");
+                $this->info("All queues are empty. Stopping.");
                 break;
             }
 
@@ -137,16 +185,16 @@ final class QueueWorkCommand extends Command
     }
 
     /**
-     * Display header with configuration
+     * Display header with configuration.
      *
-     * @param string $queueName
+     * @param array<string> $queues Queue names in priority order
      * @param int $maxJobs
      * @param int $sleep
      * @param bool $stopWhenEmpty
      * @return void
      */
     private function displayHeader(
-        string $queueName,
+        array $queues,
         int $maxJobs,
         int $sleep,
         bool $stopWhenEmpty
@@ -154,7 +202,7 @@ final class QueueWorkCommand extends Command
         $this->line('=', 80);
         $this->writeln('Queue Worker Started');
         $this->line('=', 80);
-        $this->writeln("Queue:     {$queueName}");
+        $this->writeln("Queue:     " . implode(',', $queues));
         $this->writeln("Max Jobs:  " . ($maxJobs > 0 ? $maxJobs : 'unlimited'));
         $this->writeln("Sleep:     {$sleep} second(s)");
         $this->writeln("Stop when empty: " . ($stopWhenEmpty ? 'yes' : 'no'));
@@ -162,6 +210,15 @@ final class QueueWorkCommand extends Command
         $this->writeln("PID:       " . getmypid());
         $this->line('=', 80);
         $this->newLine();
+
+        // Show priority order if multiple queues
+        if (count($queues) > 1) {
+            $this->info("Queue priority order (first = highest):");
+            foreach ($queues as $index => $queue) {
+                $this->writeln("  " . ($index + 1) . ". {$queue}");
+            }
+            $this->newLine();
+        }
     }
 
     /**
