@@ -54,5 +54,5 @@ yarn-error.log
 deployment/
 
 # Docs & Examples
-docs/
+#docs/
 examples/
