@@ -7,6 +7,7 @@ namespace Toporia\Framework\Queue;
 use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Support\ColoredLogger;
 use Toporia\Framework\Queue\Contracts\{JobInterface, QueueInterface};
+use Toporia\Framework\Queue\Exceptions\{RateLimitExceededException, JobAlreadyRunningException};
 
 /**
  * Queue Worker
@@ -109,7 +110,16 @@ final class Worker
     }
 
     /**
-     * Process a single job
+     * Process a single job with middleware support and backoff retry.
+     *
+     * Execution flow:
+     * 1. Increment attempts
+     * 2. Execute middleware pipeline
+     * 3. Execute job handle() method
+     * 4. On success: log completion
+     * 5. On failure: retry with backoff or mark as failed
+     *
+     * Performance: O(M + H) where M = middleware count, H = job execution time
      *
      * @param JobInterface $job
      * @return void
@@ -117,25 +127,39 @@ final class Worker
     private function processJob(JobInterface $job): void
     {
         try {
-            $this->logger->info("Processing job: {$job->getId()}");
+            $attemptNumber = $job->attempts() + 1;
+            $this->logger->info("Processing job: {$job->getId()} (attempt {$attemptNumber})");
 
             $job->incrementAttempts();
 
-            // Use container to call handle() with dependency injection
-            if ($this->container) {
-                $this->container->call([$job, 'handle']);
-            } else {
-                $job->handle();
-            }
+            // Execute job through middleware pipeline
+            $this->executeJobThroughMiddleware($job);
 
             $this->logger->success("Job completed: {$job->getId()}");
+        } catch (RateLimitExceededException $e) {
+            // Rate limit exceeded - release back to queue with delay
+            $retryAfter = $e->getRetryAfter();
+            $this->logger->warning("Job rate limited: {$job->getId()}. Retrying in {$retryAfter}s");
+            $this->queue->later($job, $retryAfter, $job->getQueue());
+        } catch (JobAlreadyRunningException $e) {
+            // Job already running - release back to queue with delay
+            $this->logger->warning("Job already running: {$job->getId()}. Retrying in 60s");
+            $this->queue->later($job, 60, $job->getQueue());
         } catch (\Throwable $e) {
             $this->logger->error("Job failed: {$job->getId()} - {$e->getMessage()}");
 
             // Check if we should retry
             if ($job->attempts() < $job->getMaxAttempts()) {
-                $this->logger->warning("Retrying job: {$job->getId()} (attempt {$job->attempts()})");
-                $this->queue->push($job, $job->getQueue());
+                // Calculate backoff delay
+                $delay = $job->getBackoffDelay();
+
+                if ($delay > 0) {
+                    $this->logger->warning("Retrying job: {$job->getId()} in {$delay}s (attempt {$job->attempts()})");
+                    $this->queue->later($job, $delay, $job->getQueue());
+                } else {
+                    $this->logger->warning("Retrying job: {$job->getId()} immediately (attempt {$job->attempts()})");
+                    $this->queue->push($job, $job->getQueue());
+                }
             } else {
                 $this->logger->error("Job exceeded max attempts: {$job->getId()}");
                 $job->failed($e);
@@ -146,6 +170,61 @@ final class Worker
                 }
             }
         }
+    }
+
+    /**
+     * Execute job through middleware pipeline.
+     *
+     * Builds middleware pipeline and executes job with dependency injection.
+     *
+     * Performance: O(M) where M = number of middleware
+     *
+     * @param JobInterface $job
+     * @return mixed
+     */
+    private function executeJobThroughMiddleware(JobInterface $job): mixed
+    {
+        // Get job middleware
+        $middleware = $job->middleware();
+
+        if (empty($middleware)) {
+            // No middleware, execute directly
+            return $this->executeJob($job);
+        }
+
+        // Build middleware pipeline (Laravel-style)
+        $pipeline = array_reduce(
+            array_reverse($middleware),
+            function ($next, $middleware) {
+                return function ($job) use ($middleware, $next) {
+                    return $middleware->handle($job, $next);
+                };
+            },
+            function ($job) {
+                return $this->executeJob($job);
+            }
+        );
+
+        // Execute pipeline
+        return $pipeline($job);
+    }
+
+    /**
+     * Execute job handle() method with dependency injection.
+     *
+     * Final step in middleware pipeline.
+     *
+     * @param JobInterface $job
+     * @return mixed
+     */
+    private function executeJob(JobInterface $job): mixed
+    {
+        // Use container to call handle() with dependency injection
+        if ($this->container) {
+            return $this->container->call([$job, 'handle']);
+        }
+
+        return $job->handle();
     }
 
     /**

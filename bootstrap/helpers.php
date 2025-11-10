@@ -349,3 +349,45 @@ if (!function_exists('config')) {
         return app('config')->get($key, $default);
     }
 }
+
+if (!function_exists('hash_make')) {
+    /**
+     * Hash the given value.
+     *
+     * @param string $value Plain text value to hash
+     * @param array $options Hashing options
+     * @return string Hashed value
+     */
+    function hash_make(string $value, array $options = []): string
+    {
+        return app('hash')->make($value, $options);
+    }
+}
+
+if (!function_exists('hash_check')) {
+    /**
+     * Check the given plain value against a hash.
+     *
+     * @param string $value Plain text value
+     * @param string $hashedValue Hashed value
+     * @return bool True if match
+     */
+    function hash_check(string $value, string $hashedValue): bool
+    {
+        return app('hash')->check($value, $hashedValue);
+    }
+}
+
+if (!function_exists('hash_needs_rehash')) {
+    /**
+     * Check if the given hash needs to be rehashed.
+     *
+     * @param string $hashedValue Hashed value
+     * @param array $options Current options
+     * @return bool True if rehash needed
+     */
+    function hash_needs_rehash(string $hashedValue, array $options = []): bool
+    {
+        return app('hash')->needsRehash($hashedValue, $options);
+    }
+}
