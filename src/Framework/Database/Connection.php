@@ -86,6 +86,19 @@ class Connection implements ConnectionInterface
     }
 
     /**
+     * Execute query and return results as array.
+     *
+     * @param string $query SQL query
+     * @param array $bindings Query bindings
+     * @return array
+     */
+    public function query(string $query, array $bindings = []): array
+    {
+        $statement = $this->execute($query, $bindings);
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function beginTransaction(): bool

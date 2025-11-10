@@ -9,23 +9,22 @@ use Toporia\Framework\Database\DatabaseManager;
 use Toporia\Framework\Database\Migration\Migrator;
 
 /**
- * Run database migrations.
+ * Rollback database migrations.
  *
- * Laravel-like migration system with:
- * - Batch tracking (only run new migrations)
- * - Rollback support
+ * Laravel-like rollback system with:
+ * - Batch-based rollback (undo last batch by default)
+ * - Step-based rollback (--step=N to rollback N batches)
  * - Beautiful colored output
  * - Transaction safety
  *
  * Usage:
- * - php console migrate            # Run pending migrations
- * - php console migrate --step=1   # Run one migration at a time
- * - php console migrate --force    # Force run in production
+ * - php console migrate:rollback           # Rollback last batch
+ * - php console migrate:rollback --step=2  # Rollback last 2 batches
  */
-final class MigrateCommand extends Command
+final class MigrateRollbackCommand extends Command
 {
-    protected string $signature = 'migrate';
-    protected string $description = 'Run database migrations';
+    protected string $signature = 'migrate:rollback';
+    protected string $description = 'Rollback database migrations';
 
     private const COLOR_RESET = "\033[0m";
     private const COLOR_INFO = "\033[36m";      // Cyan
@@ -62,26 +61,38 @@ final class MigrateCommand extends Command
                 return 1;
             }
 
-            // Check for pending migrations
+            // Get step option
+            $step = (int) $this->option('step', 1);
+
+            // Check if there are migrations to rollback
             $status = $migrator->status($migrationsPath);
 
-            if (empty($status['pending'])) {
-                $this->printNothingToMigrate();
+            if (empty($status['ran'])) {
+                $this->printNothingToRollback();
                 return 0;
             }
 
-            // Show pending migrations count
-            $pendingCount = count($status['pending']);
-            $this->printPendingInfo($pendingCount);
+            // Show migrations to rollback count
+            $lastBatch = $migrator->getRepository()->getLastBatchNumber();
+            $this->printRollbackInfo($lastBatch, $step);
 
-            // Run migrations with progress tracking
-            $ranMigrations = $migrator->run($migrationsPath, function($file, $status, $error = null) {
-                $this->printMigrationStatus($file, $status, $error);
-            });
+            // Rollback migrations with progress tracking
+            $rolledBack = [];
+            for ($i = 0; $i < $step; $i++) {
+                $batch = $migrator->rollback($migrationsPath, function($file, $status, $error = null) {
+                    $this->printMigrationStatus($file, $status, $error);
+                });
+
+                if (empty($batch)) {
+                    break; // No more migrations to rollback
+                }
+
+                $rolledBack = array_merge($rolledBack, $batch);
+            }
 
             // Print summary
             $duration = round((microtime(true) - $startTime) * 1000, 2);
-            $this->printSummary(count($ranMigrations), $duration);
+            $this->printSummary(count($rolledBack), $duration);
 
             return 0;
 
@@ -99,32 +110,36 @@ final class MigrateCommand extends Command
         echo self::COLOR_INFO;
         echo "\n";
         echo "┌─────────────────────────────────────────────────────────────────┐\n";
-        echo "│                    DATABASE MIGRATIONS                           │\n";
+        echo "│                  ROLLBACK MIGRATIONS                             │\n";
         echo "└─────────────────────────────────────────────────────────────────┘\n";
         echo self::COLOR_RESET;
         echo "\n";
     }
 
     /**
-     * Print pending migrations info.
+     * Print rollback info.
      */
-    private function printPendingInfo(int $count): void
+    private function printRollbackInfo(int $lastBatch, int $step): void
     {
         echo self::COLOR_WARNING;
-        echo "  ℹ  Pending migrations: " . self::COLOR_BOLD . $count . self::COLOR_RESET . self::COLOR_WARNING . "\n";
+        echo "  ℹ  Rolling back batch: " . self::COLOR_BOLD . $lastBatch . self::COLOR_RESET . self::COLOR_WARNING;
+        if ($step > 1) {
+            echo " (last {$step} batches)";
+        }
+        echo "\n";
         echo self::COLOR_RESET;
         echo "\n";
     }
 
     /**
-     * Print nothing to migrate message.
+     * Print nothing to rollback message.
      */
-    private function printNothingToMigrate(): void
+    private function printNothingToRollback(): void
     {
         echo self::COLOR_SUCCESS;
-        echo "  ✓  Nothing to migrate" . self::COLOR_RESET . "\n";
+        echo "  ✓  Nothing to rollback" . self::COLOR_RESET . "\n";
         echo self::COLOR_DIM;
-        echo "     All migrations have been executed.\n";
+        echo "     No migrations have been executed yet.\\n";
         echo self::COLOR_RESET;
         echo "\n";
     }
@@ -138,21 +153,21 @@ final class MigrateCommand extends Command
         $displayName = $this->cleanMigrationName($file);
 
         match ($status) {
-            'migrated' => $this->printMigrated($displayName),
+            'rolledback' => $this->printRolledBack($displayName),
             'failed' => $this->printFailed($displayName, $error),
             default => null
         };
     }
 
     /**
-     * Print migrated status.
+     * Print rolled back status.
      */
-    private function printMigrated(string $name): void
+    private function printRolledBack(string $name): void
     {
         echo self::COLOR_SUCCESS;
         echo "  ✓  ";
         echo self::COLOR_RESET;
-        echo self::COLOR_DIM . "Migrating:  " . self::COLOR_RESET;
+        echo self::COLOR_DIM . "Rolling back:  " . self::COLOR_RESET;
         echo $name;
         echo self::COLOR_SUCCESS . "  [DONE]" . self::COLOR_RESET;
         echo "\n";
@@ -166,7 +181,7 @@ final class MigrateCommand extends Command
         echo self::COLOR_ERROR;
         echo "  ✗  ";
         echo self::COLOR_RESET;
-        echo self::COLOR_DIM . "Migrating:  " . self::COLOR_RESET;
+        echo self::COLOR_DIM . "Rolling back:  " . self::COLOR_RESET;
         echo $name;
         echo self::COLOR_ERROR . "  [FAILED]" . self::COLOR_RESET;
         echo "\n";
@@ -188,9 +203,9 @@ final class MigrateCommand extends Command
         echo "┌─────────────────────────────────────────────────────────────────┐\n";
         echo self::COLOR_RESET;
 
-        // Migrated count
+        // Rolled back count
         echo self::COLOR_SUCCESS;
-        echo "  ✓  " . self::COLOR_BOLD . "Migrated: " . $count . self::COLOR_RESET . self::COLOR_SUCCESS . " migrations\n";
+        echo "  ✓  " . self::COLOR_BOLD . "Rolled back: " . $count . self::COLOR_RESET . self::COLOR_SUCCESS . " migrations\n";
         echo self::COLOR_RESET;
 
         // Duration
@@ -225,7 +240,7 @@ final class MigrateCommand extends Command
         echo "\n";
         echo self::COLOR_ERROR;
         echo "┌─────────────────────────────────────────────────────────────────┐\n";
-        echo "│  ✗  MIGRATION FAILED                                            │\n";
+        echo "│  ✗  ROLLBACK FAILED                                             │\n";
         echo "└─────────────────────────────────────────────────────────────────┘\n";
         echo self::COLOR_RESET;
         echo "\n";

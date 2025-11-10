@@ -7,6 +7,8 @@ namespace App\Presentation\Console;
 use Toporia\Framework\Console\Application;
 use Toporia\Framework\Console\Command;
 use Toporia\Framework\Console\Commands\MigrateCommand;
+use Toporia\Framework\Console\Commands\MigrateRollbackCommand;
+use Toporia\Framework\Console\Commands\MigrateStatusCommand;
 use Toporia\Framework\Console\Commands\CacheClearCommand;
 use Toporia\Framework\Console\Commands\QueueWorkCommand;
 use Toporia\Framework\Console\Commands\ScheduleRunCommand;
@@ -36,6 +38,8 @@ final class Kernel
         return [
             // Database commands
             MigrateCommand::class,
+            MigrateRollbackCommand::class,
+            MigrateStatusCommand::class,
 
             // Cache commands
             CacheClearCommand::class,

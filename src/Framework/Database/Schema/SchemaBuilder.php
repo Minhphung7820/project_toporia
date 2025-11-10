@@ -109,7 +109,7 @@ class SchemaBuilder
 
         $columnsSql = implode(', ', $columns);
 
-        return "CREATE TABLE " . $this->quoteIdentifier($blueprint->getTable(), $driver) . " ({$columnsSql})";
+        return "CREATE TABLE IF NOT EXISTS " . $this->quoteIdentifier($blueprint->getTable(), $driver) . " ({$columnsSql})";
     }
 
     /**
