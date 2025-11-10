@@ -9,7 +9,7 @@ use Toporia\Framework\Foundation\ServiceProvider;
 use Toporia\Framework\Mail\MailerInterface;
 use Toporia\Framework\Mail\MailManager;
 use Toporia\Framework\Mail\MailManagerInterface;
-use Toporia\Framework\Queue\QueueInterface;
+use Toporia\Framework\Queue\Contracts\QueueInterface;
 
 /**
  * Mail Service Provider

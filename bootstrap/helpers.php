@@ -8,7 +8,7 @@ declare(strict_types=1);
  * Global helper functions for convenient access to application services.
  */
 
-use Toporia\Framework\Foundation\Application;
+use Toporia\Framework\Events\Contracts\EventInterface;
 
 if (!function_exists('app')) {
     /**
@@ -34,11 +34,11 @@ if (!function_exists('event')) {
     /**
      * Dispatch an event.
      *
-     * @param string|\Toporia\Framework\Events\EventInterface $event Event name or object.
+     * @param string|EventInterface $event Event name or object.
      * @param array $payload Event payload data.
-     * @return \Toporia\Framework\Events\EventInterface
+     * @return EventInterface
      */
-    function event(string|\Toporia\Framework\Events\EventInterface $event, array $payload = []): \Toporia\Framework\Events\EventInterface
+    function event(string|EventInterface $event, array $payload = []): EventInterface
     {
         return app('events')->dispatch($event, $payload);
     }
@@ -228,6 +228,30 @@ if (!function_exists('http')) {
         }
 
         return $manager->client($client);
+    }
+}
+
+if (!function_exists('storage')) {
+    /**
+     * Get the storage manager or a specific disk.
+     *
+     * Usage:
+     * - storage() - Get StorageManager
+     * - storage('local') - Get specific disk
+     * - storage()->disk('s3') - Get S3 disk
+     *
+     * @param string|null $disk Disk name
+     * @return \Toporia\Framework\Storage\StorageManager|\Toporia\Framework\Storage\Contracts\FilesystemInterface
+     */
+    function storage(?string $disk = null): mixed
+    {
+        $manager = app('storage');
+
+        if ($disk === null) {
+            return $manager;
+        }
+
+        return $manager->disk($disk);
     }
 }
 

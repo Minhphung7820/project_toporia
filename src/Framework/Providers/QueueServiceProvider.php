@@ -6,11 +6,9 @@ namespace Toporia\Framework\Providers;
 
 use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Foundation\ServiceProvider;
-use Toporia\Framework\Queue\Contracts\Dispatcher;
+use Toporia\Framework\Queue\Contracts\{Dispatcher, QueueInterface, QueueManagerInterface};
 use Toporia\Framework\Queue\JobDispatcher;
-use Toporia\Framework\Queue\QueueInterface;
 use Toporia\Framework\Queue\QueueManager;
-use Toporia\Framework\Queue\QueueManagerInterface;
 
 /**
  * Queue Service Provider

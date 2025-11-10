@@ -8,7 +8,7 @@ use App\Domain\Product\ProductModel;
 use App\Jobs\SendEmailJob;
 use Toporia\Framework\Http\Request;
 use Toporia\Framework\Http\Response;
-use Toporia\Framework\Queue\QueueManagerInterface;
+use Toporia\Framework\Queue\Contracts\QueueManagerInterface;
 
 /**
  * Home Controller

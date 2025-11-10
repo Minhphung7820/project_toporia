@@ -6,7 +6,7 @@ namespace Toporia\Framework\Mail;
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
-use Toporia\Framework\Queue\QueueInterface;
+use Toporia\Framework\Queue\Contracts\QueueInterface;
 
 /**
  * SMTP Mailer

@@ -120,6 +120,7 @@ $app->registerProviders([
     \Toporia\Framework\Providers\MailServiceProvider::class,      // Mail system
     \Toporia\Framework\Providers\HttpClientServiceProvider::class, // HTTP client (API calls)
     \Toporia\Framework\Providers\DatabaseServiceProvider::class,  // Database system
+    \Toporia\Framework\Providers\StorageServiceProvider::class,   // Storage system (Local, S3, etc.)
 
     // Application providers
     \App\Providers\AppServiceProvider::class,

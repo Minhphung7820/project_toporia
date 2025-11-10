@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Toporia\Framework\Mail;
 
-use Toporia\Framework\Queue\QueueInterface;
+use Toporia\Framework\Queue\Contracts\QueueInterface;
 
 /**
  * Mail Manager

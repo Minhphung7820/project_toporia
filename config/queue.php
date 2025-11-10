@@ -50,11 +50,15 @@ return [
         'redis' => [
             'driver' => 'redis',
             'host' => env('REDIS_HOST', '127.0.0.1'),
-            'port' => env('REDIS_PORT', 6379),
+            'port' => (int) env('REDIS_PORT', 6379),
             'password' => env('REDIS_PASSWORD'),
-            'database' => env('REDIS_QUEUE_DB', 0),
+            'database' => (int) env('REDIS_DATABASE', 0),
             'queue' => 'default',
             'retry_after' => 90,
+            'prefix' => 'queues',                    // Redis key prefix
+            'timeout' => 2.0,                        // Connection timeout (seconds)
+            'read_timeout' => 2.0,                   // Read timeout (seconds)
+            'retry_interval' => 100,                 // Retry interval (milliseconds)
         ],
     ],
 

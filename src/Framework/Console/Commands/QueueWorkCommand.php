@@ -6,7 +6,7 @@ namespace Toporia\Framework\Console\Commands;
 
 use Toporia\Framework\Console\Command;
 use Toporia\Framework\Container\ContainerInterface;
-use Toporia\Framework\Queue\QueueManagerInterface;
+use Toporia\Framework\Queue\Contracts\QueueManagerInterface;
 use Toporia\Framework\Queue\Worker;
 
 /**
@@ -91,7 +91,7 @@ final class QueueWorkCommand extends Command
 
         pcntl_async_signals(true);
 
-        $shutdown = function() use ($worker) {
+        $shutdown = function () use ($worker) {
             $this->newLine(2);
             $this->warn("Received shutdown signal...");
             $this->info("Waiting for current job to finish...");

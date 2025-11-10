@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Toporia\Framework\Queue;
 
+use Toporia\Framework\Queue\Contracts\JobInterface;
+
 /**
  * Abstract Job
  *

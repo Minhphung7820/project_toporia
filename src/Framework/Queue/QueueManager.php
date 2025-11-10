@@ -6,6 +6,7 @@ namespace Toporia\Framework\Queue;
 
 use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Database\Connection;
+use Toporia\Framework\Queue\Contracts\{JobInterface, QueueInterface, QueueManagerInterface};
 
 /**
  * Queue Manager
@@ -57,9 +58,21 @@ final class QueueManager implements QueueManagerInterface
         return match ($config['driver'] ?? $driver) {
             'sync' => $this->createSyncQueue(),
             'database' => $this->createDatabaseQueue($config),
-            'redis' => RedisQueue::fromConfig($config),
+            'redis' => $this->createRedisQueue($config),
             default => throw new \InvalidArgumentException("Unsupported queue driver: {$driver}"),
         };
+    }
+
+    /**
+     * Create Redis queue instance with container injection.
+     *
+     * @param array $config
+     * @return RedisQueue
+     */
+    private function createRedisQueue(array $config): RedisQueue
+    {
+        // Inject container for dependency injection support
+        return new RedisQueue($config, $this->container);
     }
 
     /**

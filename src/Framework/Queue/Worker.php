@@ -6,6 +6,7 @@ namespace Toporia\Framework\Queue;
 
 use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Support\ColoredLogger;
+use Toporia\Framework\Queue\Contracts\{JobInterface, QueueInterface};
 
 /**
  * Queue Worker

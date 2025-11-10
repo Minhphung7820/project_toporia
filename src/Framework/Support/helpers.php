@@ -430,7 +430,7 @@ if (!function_exists('view')) {
         extract($data);
         ob_start();
 
-        $viewPath = __DIR__ . '/../../App/Views/' . $path . '.php';
+        $viewPath = __DIR__ . '/../../App/Presentation/Views/' . $path . '.php';
 
         if (!file_exists($viewPath)) {
             throw new RuntimeException("View not found: {$path}");

@@ -6,7 +6,7 @@ namespace Toporia\Framework\Support\Accessors;
 
 use Toporia\Framework\Foundation\ServiceAccessor;
 use Toporia\Framework\Queue\QueueManager;
-use Toporia\Framework\Queue\JobInterface;
+use Toporia\Framework\Queue\Contracts\JobInterface;
 
 /**
  * Queue Service Accessor

@@ -6,6 +6,7 @@ namespace Toporia\Framework\Queue;
 
 use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Database\Connection;
+use Toporia\Framework\Queue\Contracts\{JobInterface, QueueInterface};
 
 /**
  * Database Queue Driver

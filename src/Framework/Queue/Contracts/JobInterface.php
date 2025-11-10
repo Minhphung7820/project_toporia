@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Toporia\Framework\Queue;
+namespace Toporia\Framework\Queue\Contracts;
 
 /**
  * Job Interface

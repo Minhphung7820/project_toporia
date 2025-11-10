@@ -14,6 +14,7 @@ use App\Presentation\Http\Middleware\Authenticate;
 use App\Presentation\Http\Controllers\HomeController;
 use App\Presentation\Http\Controllers\AuthController;
 use App\Presentation\Http\Controllers\ProductsController;
+use App\Presentation\Http\Controllers\FileUploadController;
 use App\Presentation\Http\Action\Product\CreateProductAction;
 
 /** @var Router $router */
@@ -42,3 +43,11 @@ $router->get('/products/{id}', [ProductsController::class, 'show']);
 
 // API routes (ADR pattern)
 $router->post('/v2/products', [CreateProductAction::class, '__invoke']);
+
+// File Upload routes
+$router->get('/upload', [FileUploadController::class, 'showForm']);
+$router->post('/upload/local', [FileUploadController::class, 'uploadLocal']);
+$router->post('/upload/s3', [FileUploadController::class, 'uploadToS3']);
+$router->get('/upload/list', [FileUploadController::class, 'listFiles']);
+$router->get('/upload/download/{filename}', [FileUploadController::class, 'download']);
+$router->delete('/upload/{filename}', [FileUploadController::class, 'delete']);
