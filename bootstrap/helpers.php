@@ -300,3 +300,52 @@ if (!function_exists('dump')) {
         return $var;
     }
 }
+
+if (!function_exists('notify')) {
+    /**
+     * Send a notification to a notifiable entity.
+     *
+     * @param \Toporia\Framework\Notification\Contracts\NotifiableInterface $notifiable
+     * @param \Toporia\Framework\Notification\Contracts\NotificationInterface $notification
+     * @return void
+     */
+    function notify(
+        \Toporia\Framework\Notification\Contracts\NotifiableInterface $notifiable,
+        \Toporia\Framework\Notification\Contracts\NotificationInterface $notification
+    ): void {
+        app('notification')->send($notifiable, $notification);
+    }
+}
+
+if (!function_exists('broadcast')) {
+    /**
+     * Broadcast realtime event to a channel.
+     *
+     * @param string $channel Channel name
+     * @param string $event Event name
+     * @param mixed $data Event data
+     * @return void
+     */
+    function broadcast(string $channel, string $event, mixed $data): void
+    {
+        app('realtime')->broadcast($channel, $event, $data);
+    }
+}
+
+if (!function_exists('config')) {
+    /**
+     * Get configuration value.
+     *
+     * Usage:
+     * - config('app.name') - Get specific config value
+     * - config('app.name', 'default') - With default value
+     *
+     * @param string $key Config key in dot notation (e.g., 'app.name')
+     * @param mixed $default Default value
+     * @return mixed
+     */
+    function config(string $key, mixed $default = null): mixed
+    {
+        return app('config')->get($key, $default);
+    }
+}

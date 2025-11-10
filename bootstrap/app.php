@@ -121,6 +121,8 @@ $app->registerProviders([
     \Toporia\Framework\Providers\HttpClientServiceProvider::class, // HTTP client (API calls)
     \Toporia\Framework\Providers\DatabaseServiceProvider::class,  // Database system
     \Toporia\Framework\Providers\StorageServiceProvider::class,   // Storage system (Local, S3, etc.)
+    \Toporia\Framework\Providers\NotificationServiceProvider::class, // Notification system (Mail, Database, SMS, Slack)
+    \Toporia\Framework\Providers\RealtimeServiceProvider::class,  // Realtime system (WebSocket, SSE, Redis Pub/Sub)
 
     // Application providers
     \App\Providers\AppServiceProvider::class,

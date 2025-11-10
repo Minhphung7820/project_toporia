@@ -12,6 +12,7 @@ use Toporia\Framework\Console\Commands\QueueWorkCommand;
 use Toporia\Framework\Console\Commands\ScheduleRunCommand;
 use Toporia\Framework\Console\Commands\ScheduleWorkCommand;
 use Toporia\Framework\Console\Commands\ScheduleListCommand;
+use Toporia\Framework\Console\Commands\RealtimeServeCommand;
 
 /**
  * Console Kernel
@@ -46,6 +47,9 @@ final class Kernel
             ScheduleRunCommand::class,
             ScheduleWorkCommand::class,
             ScheduleListCommand::class,
+
+            // Realtime commands
+            RealtimeServeCommand::class,
 
             // Add your custom commands here...
         ];
