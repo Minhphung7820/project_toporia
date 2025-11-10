@@ -219,6 +219,7 @@ final class NotificationManager implements NotificationManagerInterface
             'database' => $this->createDatabaseChannel($channelConfig),
             'sms' => $this->createSmsChannel($channelConfig),
             'slack' => $this->createSlackChannel($channelConfig),
+            'broadcast' => $this->createBroadcastChannel($channelConfig),
             default => throw new \InvalidArgumentException("Unsupported notification driver: {$driver}")
         };
     }
@@ -285,6 +286,28 @@ final class NotificationManager implements NotificationManagerInterface
     private function createSlackChannel(array $config): ChannelInterface
     {
         return new Channels\SlackChannel($config);
+    }
+
+    /**
+     * Create Broadcast channel.
+     *
+     * Integrates with Realtime system for WebSocket/SSE notifications.
+     *
+     * @param array $config
+     * @return ChannelInterface
+     */
+    private function createBroadcastChannel(array $config): ChannelInterface
+    {
+        $realtime = $this->container?->get('realtime');
+
+        if (!$realtime) {
+            throw new \RuntimeException(
+                'Broadcast channel requires RealtimeManager in container. ' .
+                'Ensure RealtimeServiceProvider is registered in bootstrap/app.php'
+            );
+        }
+
+        return new Channels\BroadcastChannel($realtime, $config);
     }
 
     /**

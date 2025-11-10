@@ -66,6 +66,12 @@ return [
             'driver' => 'slack',
             'webhook_url' => env('SLACK_WEBHOOK_URL'),
         ],
+
+        'broadcast' => [
+            'driver' => 'broadcast',
+            // Uses RealtimeManager from container
+            // Sends notifications via WebSocket/SSE to connected clients
+        ],
     ],
 
     /*
