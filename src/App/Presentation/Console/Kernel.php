@@ -9,6 +9,9 @@ use Toporia\Framework\Console\Command;
 use Toporia\Framework\Console\Commands\MigrateCommand;
 use Toporia\Framework\Console\Commands\MigrateRollbackCommand;
 use Toporia\Framework\Console\Commands\MigrateStatusCommand;
+use Toporia\Framework\Console\Commands\RouteCacheCommand;
+use Toporia\Framework\Console\Commands\RouteClearCommand;
+use Toporia\Framework\Console\Commands\RouteListCommand;
 use Toporia\Framework\Console\Commands\CacheClearCommand;
 use Toporia\Framework\Console\Commands\QueueWorkCommand;
 use Toporia\Framework\Console\Commands\ScheduleRunCommand;
@@ -40,6 +43,11 @@ final class Kernel
             MigrateCommand::class,
             MigrateRollbackCommand::class,
             MigrateStatusCommand::class,
+
+            // Route commands
+            RouteCacheCommand::class,
+            RouteClearCommand::class,
+            RouteListCommand::class,
 
             // Cache commands
             CacheClearCommand::class,

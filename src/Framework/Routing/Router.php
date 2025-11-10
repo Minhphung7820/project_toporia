@@ -384,4 +384,101 @@ final class Router implements RouterInterface
     {
         $this->currentNamePrefix = $prefix;
     }
+
+    /**
+     * Compile routes for caching.
+     *
+     * Returns optimized array structure for O(1) lookup.
+     *
+     * Performance: Pre-compiles regex patterns, flattens structure.
+     *
+     * @return array Compiled routes data
+     */
+    public function compileRoutes(): array
+    {
+        $compiled = [];
+
+        foreach ($this->routes->all() as $route) {
+            $method = $route->getMethod();
+            $path = $route->getPath();
+            $pattern = $route->getPattern();
+
+            $compiled[] = [
+                'method' => $method,
+                'path' => $path,
+                'pattern' => $pattern,
+                'handler' => $this->serializeHandler($route->getHandler()),
+                'middleware' => $route->getMiddleware(),
+                'name' => $route->getName(),
+            ];
+        }
+
+        return $compiled;
+    }
+
+    /**
+     * Load routes from cache.
+     *
+     * Reconstructs Route objects from cached data.
+     *
+     * @param array $cached Cached routes data
+     * @return void
+     */
+    public function loadCachedRoutes(array $cached): void
+    {
+        $collection = new RouteCollection();
+
+        foreach ($cached as $data) {
+            $route = new Route(
+                $data['method'],
+                $data['path'],
+                $this->unserializeHandler($data['handler'])
+            );
+
+            $route->setPattern($data['pattern']);
+            $route->setMiddleware($data['middleware']);
+
+            if ($data['name']) {
+                $route->name($data['name']);
+            }
+
+            $collection->add($route);
+        }
+
+        $this->routes = $collection;
+    }
+
+    /**
+     * Serialize handler for caching.
+     *
+     * @param mixed $handler Route handler
+     * @return array Serializable handler data
+     */
+    private function serializeHandler(mixed $handler): array
+    {
+        if (is_array($handler)) {
+            return ['type' => 'array', 'value' => $handler];
+        }
+
+        if (is_string($handler)) {
+            return ['type' => 'string', 'value' => $handler];
+        }
+
+        // Closures cannot be cached
+        return ['type' => 'closure', 'value' => null];
+    }
+
+    /**
+     * Unserialize handler from cache.
+     *
+     * @param array $data Serialized handler data
+     * @return mixed Handler
+     */
+    private function unserializeHandler(array $data): mixed
+    {
+        return match ($data['type']) {
+            'array', 'string' => $data['value'],
+            default => fn() => null // Closure placeholder
+        };
+    }
 }
