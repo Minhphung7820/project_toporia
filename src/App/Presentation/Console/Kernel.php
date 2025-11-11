@@ -6,76 +6,56 @@ namespace App\Presentation\Console;
 
 use Toporia\Framework\Console\Application;
 use Toporia\Framework\Console\Command;
-use Toporia\Framework\Console\Commands\MigrateCommand;
-use Toporia\Framework\Console\Commands\MigrateRollbackCommand;
-use Toporia\Framework\Console\Commands\MigrateStatusCommand;
-use Toporia\Framework\Console\Commands\RouteCacheCommand;
-use Toporia\Framework\Console\Commands\RouteClearCommand;
-use Toporia\Framework\Console\Commands\RouteListCommand;
-use Toporia\Framework\Console\Commands\CacheClearCommand;
-use Toporia\Framework\Console\Commands\QueueWorkCommand;
-use Toporia\Framework\Console\Commands\ScheduleRunCommand;
-use Toporia\Framework\Console\Commands\ScheduleWorkCommand;
-use Toporia\Framework\Console\Commands\ScheduleListCommand;
-use Toporia\Framework\Console\Commands\RealtimeServeCommand;
+use Toporia\Framework\Console\CommandRegistry;
 
 /**
  * Console Kernel
  *
- * Central place to register CLI commands.
- * Keeps entry files thin and enables reuse and testability.
+ * APPLICATION-LEVEL command registration.
+ * Framework commands are auto-registered in ConsoleServiceProvider.
  *
- * This follows the Service Provider pattern for console commands.
+ * Only register YOUR APPLICATION-SPECIFIC commands here.
+ *
+ * This follows Clean Architecture:
+ * - Framework layer manages framework commands
+ * - Application layer manages application commands
  */
 final class Kernel
 {
     /**
-     * Return the list of command classes to be registered.
+     * Return APPLICATION-SPECIFIC command classes to be registered.
      *
-     * Add your custom commands here.
+     * Framework commands (migrate, cache:clear, queue:work, etc.)
+     * are automatically registered by the framework.
+     *
+     * Only add YOUR CUSTOM application commands here.
      *
      * @return array<int, class-string<Command>>
      */
     public function commands(): array
     {
         return [
-            // Database commands
-            MigrateCommand::class,
-            MigrateRollbackCommand::class,
-            MigrateStatusCommand::class,
-
-            // Route commands
-            RouteCacheCommand::class,
-            RouteClearCommand::class,
-            RouteListCommand::class,
-
-            // Cache commands
-            CacheClearCommand::class,
-
-            // Queue commands
-            QueueWorkCommand::class,
-
-            // Schedule commands
-            ScheduleRunCommand::class,
-            ScheduleWorkCommand::class,
-            ScheduleListCommand::class,
-
-            // Realtime commands
-            RealtimeServeCommand::class,
-
-            // Add your custom commands here...
+            // Add your custom application commands here...
+            // Example:
+            // \App\Console\Commands\SendNewsletterCommand::class,
+            // \App\Console\Commands\GenerateReportCommand::class,
         ];
     }
 
     /**
      * Bootstrap the console application by registering commands.
      *
-     * @param Application $app
+     * @param Application $app Console application
+     * @param CommandRegistry $registry Command registry with framework commands
      * @return void
      */
-    public function bootstrap(Application $app): void
+    public function bootstrap(Application $app, CommandRegistry $registry): void
     {
-        foreach ($this->commands() as $commandClass) {
+        // Register application-specific commands
+        $registry->registerMany($this->commands());
+
+        // Register all commands (framework + application) to console app
+        foreach ($registry->all() as $commandClass) {
             $app->register($commandClass);
         }
     }

@@ -391,3 +391,194 @@ if (!function_exists('hash_needs_rehash')) {
         return app('hash')->needsRehash($hashedValue, $options);
     }
 }
+
+// ============================================================================
+// URL Generation Helpers
+// ============================================================================
+
+if (!function_exists('url')) {
+    /**
+     * Generate a URL to a path.
+     *
+     * Usage:
+     * - url() - Get UrlGenerator instance
+     * - url('/path') - Generate URL to path
+     * - url('/path', ['key' => 'value']) - With query parameters
+     *
+     * @param string|null $path URL path
+     * @param array<string, mixed> $query Query parameters
+     * @param bool $absolute Generate absolute URL (default: true)
+     * @return \Toporia\Framework\Routing\UrlGeneratorInterface|string
+     */
+    function url(?string $path = null, array $query = [], bool $absolute = true): mixed
+    {
+        $generator = app('url');
+
+        if ($path === null) {
+            return $generator;
+        }
+
+        return $generator->to($path, $query, $absolute);
+    }
+}
+
+if (!function_exists('route')) {
+    /**
+     * Generate a URL to a named route.
+     *
+     * @param string $name Route name
+     * @param array<string, mixed> $parameters Route parameters
+     * @param bool $absolute Generate absolute URL (default: true)
+     * @return string Generated URL
+     */
+    function route(string $name, array $parameters = [], bool $absolute = true): string
+    {
+        return app('url')->route($name, $parameters, $absolute);
+    }
+}
+
+if (!function_exists('asset')) {
+    /**
+     * Generate an asset URL.
+     *
+     * @param string $path Asset path
+     * @param bool $absolute Generate absolute URL (default: false)
+     * @return string Generated URL
+     */
+    function asset(string $path, bool $absolute = false): string
+    {
+        return app('url')->asset($path, $absolute);
+    }
+}
+
+if (!function_exists('secure_asset')) {
+    /**
+     * Generate a secure asset URL (HTTPS).
+     *
+     * @param string $path Asset path
+     * @return string Generated URL
+     */
+    function secure_asset(string $path): string
+    {
+        return app('url')->secureAsset($path);
+    }
+}
+
+if (!function_exists('secure_url')) {
+    /**
+     * Generate a secure URL to a path (HTTPS).
+     *
+     * @param string $path URL path
+     * @param array<string, mixed> $query Query parameters
+     * @return string Generated URL
+     */
+    function secure_url(string $path, array $query = []): string
+    {
+        $generator = app('url');
+        $generator->forceScheme('https');
+        return $generator->to($path, $query, true);
+    }
+}
+
+if (!function_exists('url_current')) {
+    /**
+     * Get the current URL.
+     *
+     * @return string Current URL
+     */
+    function url_current(): string
+    {
+        return app('url')->current();
+    }
+}
+
+if (!function_exists('url_previous')) {
+    /**
+     * Get the previous URL.
+     *
+     * @param string|null $default Default URL if no previous
+     * @return string Previous URL
+     */
+    function url_previous(?string $default = null): string
+    {
+        return app('url')->previous($default);
+    }
+}
+
+if (!function_exists('url_full')) {
+    /**
+     * Get the full URL for the current request with query string.
+     *
+     * @return string Full URL
+     */
+    function url_full(): string
+    {
+        return app('url')->full();
+    }
+}
+
+if (!function_exists('signed_route')) {
+    /**
+     * Generate a signed URL to a named route.
+     *
+     * @param string $name Route name
+     * @param array<string, mixed> $parameters Route parameters
+     * @param int|null $expiration Expiration in seconds from now
+     * @param bool $absolute Generate absolute URL (default: true)
+     * @return string Signed URL
+     */
+    function signed_route(string $name, array $parameters = [], ?int $expiration = null, bool $absolute = true): string
+    {
+        return app('url')->signedRoute($name, $parameters, $expiration, $absolute);
+    }
+}
+
+if (!function_exists('temporary_signed_route')) {
+    /**
+     * Generate a temporary signed URL to a named route.
+     *
+     * @param string $name Route name
+     * @param int $expiration Expiration in seconds from now
+     * @param array<string, mixed> $parameters Route parameters
+     * @param bool $absolute Generate absolute URL (default: true)
+     * @return string Signed URL
+     */
+    function temporary_signed_route(string $name, int $expiration, array $parameters = [], bool $absolute = true): string
+    {
+        return app('url')->temporarySignedRoute($name, $expiration, $parameters, $absolute);
+    }
+}
+
+// ============================================================================
+// Pipeline Helpers
+// ============================================================================
+
+if (!function_exists('pipeline')) {
+    /**
+     * Create a new pipeline instance.
+     *
+     * Usage:
+     * ```php
+     * $result = pipeline($user)
+     *     ->through([
+     *         ValidateUser::class,
+     *         NormalizeData::class,
+     *         fn($user, $next) => $next($user)
+     *     ])
+     *     ->thenReturn();
+     * ```
+     *
+     * @param mixed|null $passable Initial value to send through pipeline
+     * @return \Toporia\Framework\Pipeline\Pipeline
+     */
+    function pipeline(mixed $passable = null): \Toporia\Framework\Pipeline\Pipeline
+    {
+        $pipeline = \Toporia\Framework\Pipeline\Pipeline::make(app()->getContainer());
+
+        if ($passable !== null) {
+            $pipeline->send($passable);
+        }
+
+        return $pipeline;
+    }
+}

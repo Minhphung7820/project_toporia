@@ -95,7 +95,7 @@ final class RouteListCommand extends Command
     {
         // Filter by path
         if ($path = $this->option('path')) {
-            $routes = array_filter($routes, fn($route) => str_contains($route->getPath(), $path));
+            $routes = array_filter($routes, fn($route) => str_contains($route->getUri(), $path));
         }
 
         // Filter by name
@@ -109,7 +109,11 @@ final class RouteListCommand extends Command
         // Filter by method
         if ($method = $this->option('method')) {
             $method = strtoupper($method);
-            $routes = array_filter($routes, fn($route) => $route->getMethod() === $method);
+            $routes = array_filter($routes, function($route) use ($method) {
+                $methods = $route->getMethods();
+                $methodsArray = is_array($methods) ? $methods : [$methods];
+                return in_array($method, $methodsArray);
+            });
         }
 
         return $routes;
@@ -147,13 +151,15 @@ final class RouteListCommand extends Command
 
         // Print routes
         foreach ($routes as $route) {
-            $method = $route->getMethod();
-            $path = $route->getPath();
+            $methods = $route->getMethods();
+            $method = is_array($methods) ? implode('|', $methods) : $methods;
+            $path = $route->getUri();
             $name = $route->getName() ?? '-';
             $middleware = $this->formatMiddleware($route->getMiddleware());
 
-            // Method with color
-            $methodColor = self::METHOD_COLORS[$method] ?? self::COLOR_RESET;
+            // Method with color (use first method for color)
+            $firstMethod = is_array($methods) ? $methods[0] : $methods;
+            $methodColor = self::METHOD_COLORS[$firstMethod] ?? self::COLOR_RESET;
             $methodStr = $methodColor . str_pad($method, $methodWidth) . self::COLOR_RESET;
 
             echo "  │ " . $methodStr;

@@ -11,6 +11,7 @@ use App\Notifications\UserCreatedNotification;
 use Toporia\Framework\Http\Request;
 use Toporia\Framework\Http\Response;
 use Toporia\Framework\Queue\Contracts\QueueManagerInterface;
+use Toporia\Framework\Support\Accessors\URL;
 
 /**
  * Home Controller
@@ -37,6 +38,7 @@ final class HomeController extends BaseController
      */
     public function index(Request $request)
     {
+        dd(URL::current());
         // DEMO: Create user and send notification via queue
         // This will create ONE job per request
         // $user = UserModel::create([
@@ -55,12 +57,12 @@ final class HomeController extends BaseController
         //     queueName: 'notifications'
         // );
 
-        SendEmailJob::dispatch(
-            to: 'minhphung485@gmail.com',
-            subject: 'Test Email from Toporia Framework',
-            message: '<h1>Hello from Toporia!</h1><p>This email was sent from a queued job.</p>',
-            from: 'tmpdz7820@gmail.com'
-        );
+        // SendEmailJob::dispatch(
+        //     to: 'minhphung485@gmail.com',
+        //     subject: 'Test Email from Toporia Framework',
+        //     message: '<h1>Hello from Toporia!</h1><p>This email was sent from a queued job.</p>',
+        //     from: 'tmpdz7820@gmail.com'
+        // );
 
         // Alternative: Fluent API with queue and delay
         // SendEmailJob::dispatch($to, $subject, $message, $from)

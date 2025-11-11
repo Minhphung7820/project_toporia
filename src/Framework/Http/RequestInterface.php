@@ -65,6 +65,20 @@ interface RequestInterface
     public function expectsJson(): bool;
 
     /**
+     * Check if the request is over HTTPS.
+     *
+     * @return bool
+     */
+    public function isSecure(): bool;
+
+    /**
+     * Get the host from the request.
+     *
+     * @return string
+     */
+    public function host(): string;
+
+    /**
      * Get the raw request body.
      *
      * @return string

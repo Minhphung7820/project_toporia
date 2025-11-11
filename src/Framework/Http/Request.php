@@ -150,6 +150,53 @@ final class Request implements RequestInterface
     }
 
     /**
+     * Check if the request is over HTTPS.
+     *
+     * @return bool
+     */
+    public function isSecure(): bool
+    {
+        // Check HTTPS server variable
+        if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+            return true;
+        }
+
+        // Check forwarded protocol header (proxy/load balancer)
+        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+            return true;
+        }
+
+        // Check standard port
+        if (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get the host from the request.
+     *
+     * @return string
+     */
+    public function host(): string
+    {
+        // Check forwarded host header first (proxy/load balancer)
+        if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+            $hosts = explode(',', $_SERVER['HTTP_X_FORWARDED_HOST']);
+            return trim($hosts[0]);
+        }
+
+        // Check standard host header
+        if (isset($_SERVER['HTTP_HOST'])) {
+            return $_SERVER['HTTP_HOST'];
+        }
+
+        // Fallback to server name
+        return $_SERVER['SERVER_NAME'] ?? 'localhost';
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function raw(): string

@@ -399,14 +399,12 @@ final class Router implements RouterInterface
         $compiled = [];
 
         foreach ($this->routes->all() as $route) {
-            $method = $route->getMethod();
-            $path = $route->getPath();
-            $pattern = $route->getPattern();
+            $methods = $route->getMethods();
+            $uri = $route->getUri();
 
             $compiled[] = [
-                'method' => $method,
-                'path' => $path,
-                'pattern' => $pattern,
+                'methods' => is_array($methods) ? $methods : [$methods],
+                'uri' => $uri,
                 'handler' => $this->serializeHandler($route->getHandler()),
                 'middleware' => $route->getMiddleware(),
                 'name' => $route->getName(),
@@ -430,15 +428,16 @@ final class Router implements RouterInterface
 
         foreach ($cached as $data) {
             $route = new Route(
-                $data['method'],
-                $data['path'],
+                $data['methods'],
+                $data['uri'],
                 $this->unserializeHandler($data['handler'])
             );
 
-            $route->setPattern($data['pattern']);
-            $route->setMiddleware($data['middleware']);
+            if (!empty($data['middleware'])) {
+                $route->middleware($data['middleware']);
+            }
 
-            if ($data['name']) {
+            if (!empty($data['name'])) {
                 $route->name($data['name']);
             }
 

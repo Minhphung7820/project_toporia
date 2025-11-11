@@ -111,6 +111,7 @@ $app->registerProviders([
     \Toporia\Framework\Providers\HttpServiceProvider::class,
     \Toporia\Framework\Providers\EventServiceProvider::class,
     \Toporia\Framework\Providers\RoutingServiceProvider::class,
+    \Toporia\Framework\Providers\UrlServiceProvider::class,        // URL generation
     \Toporia\Framework\Providers\ConsoleServiceProvider::class,
     \Toporia\Framework\Providers\AuthServiceProvider::class,      // Auth system
     \Toporia\Framework\Providers\SecurityServiceProvider::class,  // Security (CSRF, Gates, Cookies)
