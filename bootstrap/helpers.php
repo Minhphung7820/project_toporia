@@ -659,3 +659,77 @@ if (!function_exists('log_debug')) {
         app('logger')->debug($message, $context);
     }
 }
+
+// ============================================================================
+// Date/Time Helpers (Chronos)
+// ============================================================================
+
+if (!function_exists('now')) {
+    /**
+     * Create a new Chronos instance for the current date and time.
+     *
+     * @param \DateTimeZone|string|null $timezone
+     * @return \Toporia\Framework\DateTime\Chronos
+     */
+    function now(\DateTimeZone|string|null $timezone = null): \Toporia\Framework\DateTime\Chronos
+    {
+        return \Toporia\Framework\DateTime\Chronos::now($timezone);
+    }
+}
+
+if (!function_exists('today')) {
+    /**
+     * Create a Chronos instance for today's date at midnight.
+     *
+     * @param \DateTimeZone|string|null $timezone
+     * @return \Toporia\Framework\DateTime\Chronos
+     */
+    function today(\DateTimeZone|string|null $timezone = null): \Toporia\Framework\DateTime\Chronos
+    {
+        return \Toporia\Framework\DateTime\Chronos::now($timezone)->startOfDay();
+    }
+}
+
+if (!function_exists('yesterday')) {
+    /**
+     * Create a Chronos instance for yesterday's date at midnight.
+     *
+     * @param \DateTimeZone|string|null $timezone
+     * @return \Toporia\Framework\DateTime\Chronos
+     */
+    function yesterday(\DateTimeZone|string|null $timezone = null): \Toporia\Framework\DateTime\Chronos
+    {
+        return \Toporia\Framework\DateTime\Chronos::now($timezone)->subDays(1)->startOfDay();
+    }
+}
+
+if (!function_exists('tomorrow')) {
+    /**
+     * Create a Chronos instance for tomorrow's date at midnight.
+     *
+     * @param \DateTimeZone|string|null $timezone
+     * @return \Toporia\Framework\DateTime\Chronos
+     */
+    function tomorrow(\DateTimeZone|string|null $timezone = null): \Toporia\Framework\DateTime\Chronos
+    {
+        return \Toporia\Framework\DateTime\Chronos::now($timezone)->addDays(1)->startOfDay();
+    }
+}
+
+if (!function_exists('chronos')) {
+    /**
+     * Create a Chronos instance from a string or return current time.
+     *
+     * @param string|null $time
+     * @param \DateTimeZone|string|null $timezone
+     * @return \Toporia\Framework\DateTime\Chronos
+     */
+    function chronos(?string $time = null, \DateTimeZone|string|null $timezone = null): \Toporia\Framework\DateTime\Chronos
+    {
+        if ($time === null) {
+            return \Toporia\Framework\DateTime\Chronos::now($timezone);
+        }
+
+        return \Toporia\Framework\DateTime\Chronos::parse($time, $timezone);
+    }
+}

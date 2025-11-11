@@ -33,6 +33,7 @@ final class FrameworkServiceProvider extends ServiceProvider
             \Toporia\Framework\Providers\RoutingServiceProvider::class,
             \Toporia\Framework\Providers\UrlServiceProvider::class,
             \Toporia\Framework\Providers\LogServiceProvider::class,
+            \Toporia\Framework\Providers\DateTimeServiceProvider::class,
             \Toporia\Framework\Providers\ConsoleServiceProvider::class,
 
             // Feature services
