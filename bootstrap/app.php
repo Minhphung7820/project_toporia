@@ -96,41 +96,26 @@ require __DIR__ . '/helpers.php';
 | Register Service Providers
 |--------------------------------------------------------------------------
 |
-| Register all service providers for the application. Service providers
-| are responsible for binding services into the container.
+| Register framework and application service providers.
 |
-| Order matters:
-| 1. Framework core providers (HTTP, Events, etc.)
-| 2. Application providers (Auth, Repositories, etc.)
+| Clean Architecture:
+| - Framework providers are auto-registered by FrameworkServiceProvider
+| - Application only registers its own providers
 |
 */
 
+use Toporia\Framework\Foundation\FrameworkServiceProvider;
+
 $app->registerProviders([
-    // Framework core providers (order matters!)
-    \Toporia\Framework\Providers\ConfigServiceProvider::class,
-    \Toporia\Framework\Providers\HttpServiceProvider::class,
-    \Toporia\Framework\Providers\EventServiceProvider::class,
-    \Toporia\Framework\Providers\RoutingServiceProvider::class,
-    \Toporia\Framework\Providers\UrlServiceProvider::class,        // URL generation
-    \Toporia\Framework\Providers\ConsoleServiceProvider::class,
-    \Toporia\Framework\Providers\AuthServiceProvider::class,      // Auth system
-    \Toporia\Framework\Providers\SecurityServiceProvider::class,  // Security (CSRF, Gates, Cookies)
-    \Toporia\Framework\Providers\CacheServiceProvider::class,     // Cache system
-    \Toporia\Framework\Providers\QueueServiceProvider::class,     // Queue system
-    \Toporia\Framework\Providers\ScheduleServiceProvider::class,  // Task scheduler
-    \Toporia\Framework\Providers\MailServiceProvider::class,      // Mail system
-    \Toporia\Framework\Providers\HttpClientServiceProvider::class, // HTTP client (API calls)
-    \Toporia\Framework\Providers\DatabaseServiceProvider::class,  // Database system
-    \Toporia\Framework\Providers\StorageServiceProvider::class,   // Storage system (Local, S3, etc.)
-    \Toporia\Framework\Providers\NotificationServiceProvider::class, // Notification system (Mail, Database, SMS, Slack)
-    \Toporia\Framework\Providers\RealtimeServiceProvider::class,  // Realtime system (WebSocket, SSE, Redis Pub/Sub)
+    // Framework providers (auto-loaded from FrameworkServiceProvider)
+    ...FrameworkServiceProvider::providers(),
 
     // Application providers
     \App\Providers\AppServiceProvider::class,
     \App\Providers\RepositoryServiceProvider::class,
     \App\Providers\EventServiceProvider::class,
     \App\Providers\RouteServiceProvider::class,
-    \App\Providers\ScheduleServiceProvider::class,  // Scheduled tasks configuration
+    \App\Providers\ScheduleServiceProvider::class,
 ]);
 
 /*

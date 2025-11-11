@@ -582,3 +582,80 @@ if (!function_exists('pipeline')) {
         return $pipeline;
     }
 }
+
+if (!function_exists('logger')) {
+    /**
+     * Get logger instance or log a message.
+     *
+     * @param string|null $message Log message (null to get logger instance)
+     * @param array $context Context data
+     * @param string $level Log level (info, error, warning, etc.)
+     * @return \Toporia\Framework\Log\Contracts\LoggerInterface|void
+     */
+    function logger(?string $message = null, array $context = [], string $level = 'info')
+    {
+        $logger = app('logger');
+
+        if ($message === null) {
+            return $logger;
+        }
+
+        $logger->log($level, $message, $context);
+    }
+}
+
+if (!function_exists('log_info')) {
+    /**
+     * Log an info message.
+     *
+     * @param string $message
+     * @param array $context
+     * @return void
+     */
+    function log_info(string $message, array $context = []): void
+    {
+        app('logger')->info($message, $context);
+    }
+}
+
+if (!function_exists('log_error')) {
+    /**
+     * Log an error message.
+     *
+     * @param string $message
+     * @param array $context
+     * @return void
+     */
+    function log_error(string $message, array $context = []): void
+    {
+        app('logger')->error($message, $context);
+    }
+}
+
+if (!function_exists('log_warning')) {
+    /**
+     * Log a warning message.
+     *
+     * @param string $message
+     * @param array $context
+     * @return void
+     */
+    function log_warning(string $message, array $context = []): void
+    {
+        app('logger')->warning($message, $context);
+    }
+}
+
+if (!function_exists('log_debug')) {
+    /**
+     * Log a debug message.
+     *
+     * @param string $message
+     * @param array $context
+     * @return void
+     */
+    function log_debug(string $message, array $context = []): void
+    {
+        app('logger')->debug($message, $context);
+    }
+}
