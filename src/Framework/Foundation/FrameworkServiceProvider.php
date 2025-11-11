@@ -49,6 +49,7 @@ final class FrameworkServiceProvider extends ServiceProvider
             \Toporia\Framework\Providers\StorageServiceProvider::class,
             \Toporia\Framework\Providers\NotificationServiceProvider::class,
             \Toporia\Framework\Providers\RealtimeServiceProvider::class,
+            \Toporia\Framework\Providers\ProcessServiceProvider::class,
         ];
     }
 
