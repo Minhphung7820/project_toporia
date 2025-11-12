@@ -80,7 +80,7 @@ class UserModel extends Model implements NotifiableInterface
      */
     public function routeNotificationFor(string $channel): mixed
     {
-        return match($channel) {
+        return match ($channel) {
             'mail' => $this->email,
             'database' => $this->id,
             default => null

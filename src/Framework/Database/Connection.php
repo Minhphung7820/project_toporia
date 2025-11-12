@@ -55,6 +55,68 @@ class Connection implements ConnectionInterface
     }
 
     /**
+     * Ensure connection is alive, reconnect if needed.
+     *
+     * This method checks if the connection is still valid by attempting a simple query.
+     * If the connection is dead (e.g., "MySQL server has gone away"), it reconnects.
+     *
+     * @return void
+     */
+    public function ensureConnected(): void
+    {
+        if ($this->pdo === null) {
+            $this->reconnect();
+            return;
+        }
+
+        try {
+            // Try a simple query to check if connection is alive
+            $this->pdo->query('SELECT 1');
+        } catch (PDOException $e) {
+            // Connection is dead, reconnect
+            if ($this->isConnectionLost($e)) {
+                $this->reconnect();
+            } else {
+                throw $e;
+            }
+        }
+    }
+
+    /**
+     * Check if exception indicates connection was lost.
+     *
+     * @param PDOException $e
+     * @return bool
+     */
+    private function isConnectionLost(PDOException $e): bool
+    {
+        $message = $e->getMessage();
+        $code = $e->getCode();
+
+        // MySQL: "MySQL server has gone away" (2006) or "Lost connection" (2013)
+        if ($code === 2006 || $code === 2013) {
+            return true;
+        }
+
+        // Check error message for common connection lost patterns
+        $lostPatterns = [
+            'server has gone away',
+            'lost connection',
+            'connection was killed',
+            'connection was closed',
+            'broken pipe',
+        ];
+
+        foreach ($lostPatterns as $pattern) {
+            if (stripos($message, $pattern) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * {@inheritdoc}
      */
     public function execute(string $query, array $bindings = []): \PDOStatement
@@ -76,6 +138,24 @@ class Connection implements ConnectionInterface
 
             return $statement;
         } catch (PDOException $e) {
+            // If connection was lost, reconnect and retry once
+            if ($this->isConnectionLost($e)) {
+                $this->reconnect();
+
+                // Retry the query
+                $statement = $this->getPdo()->prepare($query);
+                foreach ($bindings as $key => $value) {
+                    $type = $this->getPdoType($value);
+                    $statement->bindValue(
+                        is_int($key) ? $key + 1 : $key,
+                        $value,
+                        $type
+                    );
+                }
+                $statement->execute();
+                return $statement;
+            }
+
             throw new QueryException(
                 "Query execution failed: {$e->getMessage()}",
                 $query,
@@ -103,7 +183,16 @@ class Connection implements ConnectionInterface
      */
     public function beginTransaction(): bool
     {
-        return $this->getPdo()->beginTransaction();
+        try {
+            return $this->getPdo()->beginTransaction();
+        } catch (PDOException $e) {
+            // If connection was lost, reconnect and retry
+            if ($this->isConnectionLost($e)) {
+                $this->reconnect();
+                return $this->getPdo()->beginTransaction();
+            }
+            throw $e;
+        }
     }
 
     /**

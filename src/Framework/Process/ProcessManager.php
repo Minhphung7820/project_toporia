@@ -152,16 +152,12 @@ final class ProcessManager implements ProcessManagerInterface
     public function wait(): array
     {
         foreach ($this->processes as $pid => $process) {
-            error_log("[PM::wait] Processing PID $pid");
-
             // Always call wait() - it handles both running and already-reaped processes
             // wait() will collect output after ensuring process is fully terminated
             $exitCode = $process->wait();
-            error_log("[PM::wait] PID $pid exit code: $exitCode");
 
             // Collect output
             $output = $process->getOutput();
-            error_log("[PM::wait] PID $pid output: " . var_export($output, true));
             $this->results[] = $output;
             unset($this->processes[$pid]);
         }

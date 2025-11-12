@@ -44,6 +44,9 @@ final class DatabaseQueue implements QueueInterface
 
     public function push(JobInterface $job, string $queue = 'default'): string
     {
+        // Ensure connection is alive
+        $this->connection->ensureConnected();
+
         // Use raw PDO for maximum performance - no QueryBuilder overhead
         // Laravel does the same for hot path operations
         $sql = "INSERT INTO jobs (id, queue, payload, attempts, available_at, created_at)
@@ -64,6 +67,9 @@ final class DatabaseQueue implements QueueInterface
 
     public function later(JobInterface $job, int $delay, string $queue = 'default'): string
     {
+        // Ensure connection is alive
+        $this->connection->ensureConnected();
+
         // Use raw PDO for maximum performance
         $sql = "INSERT INTO jobs (id, queue, payload, attempts, available_at, created_at)
                 VALUES (?, ?, ?, ?, ?, ?)";
@@ -83,6 +89,10 @@ final class DatabaseQueue implements QueueInterface
 
     public function pop(string $queue = 'default'): ?JobInterface
     {
+        // Ensure connection is alive before starting transaction
+        // This prevents "MySQL server has gone away" errors in long-running workers
+        $this->connection->ensureConnected();
+
         $currentTime = time();
 
         // BEGIN TRANSACTION to prevent race conditions
@@ -199,6 +209,9 @@ final class DatabaseQueue implements QueueInterface
 
     public function size(string $queue = 'default'): int
     {
+        // Ensure connection is alive
+        $this->connection->ensureConnected();
+
         // Use raw PDO for maximum performance
         $sql = "SELECT COUNT(*) as count FROM jobs WHERE queue = ?";
         $stmt = $this->connection->getPdo()->prepare($sql);
@@ -210,6 +223,9 @@ final class DatabaseQueue implements QueueInterface
 
     public function clear(string $queue = 'default'): void
     {
+        // Ensure connection is alive
+        $this->connection->ensureConnected();
+
         // Use raw PDO for maximum performance
         $sql = "DELETE FROM jobs WHERE queue = ?";
         $stmt = $this->connection->getPdo()->prepare($sql);
@@ -226,6 +242,9 @@ final class DatabaseQueue implements QueueInterface
      */
     public function getFailedJobs(int $limit = 100): array
     {
+        // Ensure connection is alive
+        $this->connection->ensureConnected();
+
         // Use raw PDO for maximum performance
         $sql = "SELECT * FROM failed_jobs ORDER BY failed_at DESC LIMIT ?";
         $stmt = $this->connection->getPdo()->prepare($sql);
@@ -245,6 +264,9 @@ final class DatabaseQueue implements QueueInterface
      */
     public function storeFailed(JobInterface $job, \Throwable $exception): void
     {
+        // Ensure connection is alive
+        $this->connection->ensureConnected();
+
         // Use raw PDO for maximum performance - no QueryBuilder overhead
         $sql = "INSERT INTO failed_jobs (id, queue, payload, exception, failed_at)
                 VALUES (?, ?, ?, ?, ?)";

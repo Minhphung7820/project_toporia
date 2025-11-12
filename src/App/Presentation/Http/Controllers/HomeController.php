@@ -7,6 +7,7 @@ namespace App\Presentation\Http\Controllers;
 use App\Domain\Product\ProductModel;
 use App\Domain\User\UserModel;
 use App\Jobs\SendEmailJob;
+use App\Jobs\TestProcess;
 use App\Notifications\UserCreatedNotification;
 use Toporia\Framework\Http\Request;
 use Toporia\Framework\Http\Response;
@@ -86,7 +87,7 @@ final class HomeController extends BaseController
 
         // Alternative: Using dispatch() helper
         // dispatch(new SendEmailJob(...));
-
+        TestProcess::dispatch();
         $products = ProductModel::query()
             ->where(function ($q) {
                 $q->where('stock', '>', 0);

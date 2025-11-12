@@ -99,10 +99,17 @@ final class Worker
     {
         // Try each queue in priority order
         foreach ($queues as $queueName) {
-            $job = $this->queue->pop($queueName);
+            try {
+                $job = $this->queue->pop($queueName);
 
-            if ($job !== null) {
-                return $job; // Found a job, return immediately
+                if ($job !== null) {
+                    return $job; // Found a job, return immediately
+                }
+            } catch (\Throwable $e) {
+                // Log connection errors but don't crash the worker
+                // The connection will be reconnected on next attempt
+                $this->logger->warning("Error getting job from queue '{$queueName}': {$e->getMessage()}");
+                // Continue to next queue
             }
         }
 
