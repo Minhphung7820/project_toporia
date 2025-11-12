@@ -87,9 +87,12 @@ final class Process extends ServiceAccessor
      * @param array<callable> $tasks Array of callables to execute
      * @param int $maxConcurrent Maximum concurrent processes
      * @return array Results in order of tasks
+     * @throws \RuntimeException If called from HTTP context
      */
     public static function run(array $tasks, int $maxConcurrent = 4): array
     {
+        static::guardAgainstHttpContext();
+
         $manager = new ProcessManager();
 
         foreach ($tasks as $task) {
@@ -106,9 +109,11 @@ final class Process extends ServiceAccessor
      * @param callable $callback Function to apply to each item
      * @param int|null $workerCount Number of workers (null = auto-detect)
      * @return array Mapped results
+     * @throws \RuntimeException If called from HTTP context
      */
     public static function map(array $items, callable $callback, ?int $workerCount = null): array
     {
+        static::guardAgainstHttpContext();
         return static::pool($workerCount)->map($items, $callback);
     }
 
@@ -119,9 +124,11 @@ final class Process extends ServiceAccessor
      * @param callable $callback Predicate function
      * @param int|null $workerCount Number of workers (null = auto-detect)
      * @return array Filtered items
+     * @throws \RuntimeException If called from HTTP context
      */
     public static function filter(array $items, callable $callback, ?int $workerCount = null): array
     {
+        static::guardAgainstHttpContext();
         return static::pool($workerCount)->filter($items, $callback);
     }
 
@@ -133,9 +140,11 @@ final class Process extends ServiceAccessor
      * @param mixed $initial Initial value
      * @param int|null $workerCount Number of workers (null = auto-detect)
      * @return mixed Reduced value
+     * @throws \RuntimeException If called from HTTP context
      */
     public static function reduce(array $items, callable $callback, mixed $initial = null, ?int $workerCount = null): mixed
     {
+        static::guardAgainstHttpContext();
         return static::pool($workerCount)->reduce($items, $callback, $initial);
     }
 
@@ -174,5 +183,38 @@ final class Process extends ServiceAccessor
 
         $output = shell_exec('nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4');
         return max(1, (int) trim((string) $output));
+    }
+
+    /**
+     * Guard against HTTP context.
+     *
+     * PCNTL fork in HTTP context (web requests) causes serious issues:
+     * - Child processes inherit HTTP server socket
+     * - Output buffering corruption
+     * - Zombie processes
+     * - Memory leaks
+     *
+     * @throws \RuntimeException If called from HTTP/SAPI context
+     */
+    private static function guardAgainstHttpContext(): void
+    {
+        // Check for HTTP request variables (more reliable than PHP_SAPI)
+        // PHP built-in server, Apache, Nginx, etc. all set REQUEST_METHOD
+        if (isset($_SERVER['REQUEST_METHOD']) || isset($_SERVER['HTTP_HOST'])) {
+            throw new \RuntimeException(
+                'Process::run()/map()/filter()/reduce() cannot be called from HTTP context. ' .
+                'Use Queue jobs for async processing in web requests. ' .
+                'Multi-process execution is only safe in CLI context (console commands).'
+            );
+        }
+
+        // Check if running in non-CLI SAPI
+        if (PHP_SAPI !== 'cli' && PHP_SAPI !== 'phpdbg') {
+            throw new \RuntimeException(
+                'Process::run()/map()/filter()/reduce() requires CLI SAPI. ' .
+                'Current SAPI: ' . PHP_SAPI . '. ' .
+                'Multi-process execution is only safe in CLI context (console commands).'
+            );
+        }
     }
 }

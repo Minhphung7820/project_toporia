@@ -12,6 +12,7 @@ use Toporia\Framework\Http\Request;
 use Toporia\Framework\Http\Response;
 use Toporia\Framework\Queue\Contracts\QueueManagerInterface;
 use Toporia\Framework\Support\Accessors\Chronos;
+use Toporia\Framework\Support\Accessors\Process;
 use Toporia\Framework\Support\Accessors\URL;
 
 /**
@@ -40,7 +41,13 @@ final class HomeController extends BaseController
     public function index(Request $request)
     {
         // Use default timezone from config (Asia/Ho_Chi_Minh, UTC+7)
-        dd(Chronos::now()->format('Y-m-d H:i:s'));
+        // dd(Chronos::now()->format('Y-m-d H:i:s'));
+        // Process::run([
+        //     fn() => sleep(1),
+        //     fn() => sleep(1),
+        //     fn() => sleep(1),
+        //     fn() => sleep(1),
+        // ]);
         // DEMO: Create user and send notification via queue
         // This will create ONE job per request
         // $user = UserModel::create([

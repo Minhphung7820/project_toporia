@@ -32,7 +32,50 @@ The multi-process system provides **true parallel execution** using PHP's PCNTL 
 **Requirements:**
 - PHP 8.1+ with PCNTL extension
 - Unix-like OS (Linux, macOS) - not supported on Windows
-- Fork privileges (typically requires CLI environment)
+- **CLI environment ONLY** - NOT for HTTP requests (see warning below)
+
+**⚠️ IMPORTANT: CLI ONLY - NOT for HTTP Requests**
+
+Multi-process execution is **ONLY safe in CLI context** (console commands). **NEVER use in HTTP requests/controllers** because:
+
+- Child processes inherit HTTP server socket → infinite loops
+- Output buffering corruption → broken responses
+- Zombie processes → resource leaks
+- Memory leaks → server crashes
+
+✅ **Correct Usage (CLI):**
+```php
+// Console command
+class ProcessDataCommand extends Command {
+    public function handle() {
+        $results = Process::map($items, $callback); // ✅ SAFE
+    }
+}
+```
+
+❌ **WRONG Usage (HTTP):**
+```php
+// Controller
+class HomeController {
+    public function index() {
+        $results = Process::map($items, $callback); // ❌ THROWS EXCEPTION
+        // Use Queue jobs instead for async processing!
+    }
+}
+```
+
+**For HTTP async processing, use Queue jobs instead:**
+```php
+// In controller - dispatch to queue
+MyJob::dispatch($data)->onQueue('processing');
+
+// In queue worker (CLI) - safe to use multiprocess
+class MyJob extends Job {
+    public function handle() {
+        $results = Process::map($this->items, $callback); // ✅ SAFE
+    }
+}
+```
 
 **Check if supported:**
 ```php
