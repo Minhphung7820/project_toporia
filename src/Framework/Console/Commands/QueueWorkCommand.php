@@ -57,6 +57,15 @@ final class QueueWorkCommand extends Command
         // Get queue instance
         try {
             $queue = $this->queueManager->driver();
+
+            // Optimize sleep for RabbitMQ (faster polling)
+            // RabbitMQ basic_get is fast, so we can reduce sleep time
+            if ($queue instanceof \Toporia\Framework\Queue\RabbitMQQueue) {
+                // RabbitMQ is fast, use shorter sleep if not explicitly set
+                if (!$this->hasOption('sleep')) {
+                    $sleep = 0; // No sleep for RabbitMQ - basic_get is instant
+                }
+            }
         } catch (\Exception $e) {
             $this->error("Failed to initialize queue: {$e->getMessage()}");
             return 1;

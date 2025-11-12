@@ -59,6 +59,7 @@ final class QueueManager implements QueueManagerInterface
             'sync' => $this->createSyncQueue(),
             'database' => $this->createDatabaseQueue($config),
             'redis' => $this->createRedisQueue($config),
+            'rabbitmq' => $this->createRabbitMQQueue($config),
             default => throw new \InvalidArgumentException("Unsupported queue driver: {$driver}"),
         };
     }
@@ -108,6 +109,18 @@ final class QueueManager implements QueueManagerInterface
 
         // Inject container for dependency injection support
         return new DatabaseQueue($connection, $this->container);
+    }
+
+    /**
+     * Create RabbitMQ queue instance with container injection.
+     *
+     * @param array $config
+     * @return RabbitMQQueue
+     */
+    private function createRabbitMQQueue(array $config): RabbitMQQueue
+    {
+        // Inject container for dependency injection support
+        return new RabbitMQQueue($config, $this->container);
     }
 
     /**

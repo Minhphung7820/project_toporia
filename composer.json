@@ -5,7 +5,8 @@
   "require": {
     "php": ">=8.1",
     "phpmailer/phpmailer": "^7.0",
-    "aws/aws-sdk-php": "^3.359"
+    "aws/aws-sdk-php": "^3.359",
+    "php-amqplib/php-amqplib": "^3.0"
   },
   "require-dev": {
     "jetbrains/phpstorm-stubs": "*"
@@ -13,7 +14,8 @@
   "suggest": {
     "ext-redis": "Required for Redis cache and queue drivers",
     "ext-pdo_mysql": "Required for MySQL database support",
-    "ext-pdo_pgsql": "Required for PostgreSQL database support"
+    "ext-pdo_pgsql": "Required for PostgreSQL database support",
+    "php-amqplib/php-amqplib": "Required for RabbitMQ queue driver"
   },
   "autoload": {
     "psr-4": {

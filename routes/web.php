@@ -10,17 +10,32 @@ declare(strict_types=1);
  */
 
 use Toporia\Framework\Routing\Router;
+use Toporia\Framework\Http\Request;
+use Toporia\Framework\Http\Response;
 use App\Presentation\Http\Middleware\Authenticate;
 use App\Presentation\Http\Controllers\HomeController;
 use App\Presentation\Http\Controllers\AuthController;
 use App\Presentation\Http\Controllers\ProductsController;
 use App\Presentation\Http\Controllers\FileUploadController;
 use App\Presentation\Http\Action\Product\CreateProductAction;
+use App\Jobs\TestRabbitMQJob;
 
 /** @var Router $router */
 
 // Public routes
 $router->get('/', [HomeController::class, 'index']);
+$router->get('/test-rabbitmq', function (Request $request, Response $response) {
+    // Dispatch test job
+    dispatch(new TestRabbitMQJob('Test message from route!'));
+
+    return $response->json([
+        'message' => 'RabbitMQ job dispatched successfully!',
+        'queue' => 'default',
+        'check_dashboard' => 'http://localhost:15672',
+        'credentials' => 'guest / guest',
+        'note' => 'Make sure worker is running: php console queue:work'
+    ]);
+});
 $router->get('/login', [AuthController::class, 'showLoginForm']);
 $router->post('/login', [AuthController::class, 'login']);
 $router->get('/register', [AuthController::class, 'showRegisterForm']);
