@@ -290,7 +290,6 @@ final class ForkProcess implements ProcessInterface
             }
         } else {
         }
-
     }
 
     /**
