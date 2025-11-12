@@ -173,4 +173,3 @@ final class ReplayAttackProtection implements MiddlewareInterface
         return random_int(1, $this->cleanupProbability) === 1;
     }
 }
-
