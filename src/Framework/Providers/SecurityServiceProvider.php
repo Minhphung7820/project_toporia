@@ -8,6 +8,8 @@ use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Foundation\ServiceProvider;
 use Toporia\Framework\Security\CsrfTokenManagerInterface;
 use Toporia\Framework\Security\SessionCsrfTokenManager;
+use Toporia\Framework\Security\ReplayAttackProtectionInterface;
+use Toporia\Framework\Security\SessionReplayAttackProtection;
 use Toporia\Framework\Security\XssService;
 use Toporia\Framework\Auth\GateInterface;
 use Toporia\Framework\Auth\Gate;
@@ -55,6 +57,13 @@ final class SecurityServiceProvider extends ServiceProvider
         });
 
         $container->bind('xss', fn($c) => $c->get(XssService::class));
+
+        // Replay Attack Protection
+        $container->singleton(ReplayAttackProtectionInterface::class, function () {
+            return new SessionReplayAttackProtection();
+        });
+
+        $container->bind('replay', fn($c) => $c->get(ReplayAttackProtectionInterface::class));
     }
 
     public function boot(ContainerInterface $container): void

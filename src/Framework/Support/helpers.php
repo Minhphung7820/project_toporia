@@ -325,6 +325,58 @@ if (!function_exists('csrf_field')) {
     }
 }
 
+if (!function_exists('replay_nonce')) {
+    /**
+     * Generate a replay attack protection nonce.
+     *
+     * Performance: O(1) - Direct nonce generation
+     *
+     * @param int $ttl Time-to-live in seconds (default: 300 = 5 minutes)
+     * @return string Nonce token
+     */
+    function replay_nonce(int $ttl = 300): string
+    {
+        if (function_exists('app') && app()->has('replay')) {
+            return app('replay')->generateNonce($ttl);
+        }
+
+        throw new RuntimeException('Replay attack protection not available');
+    }
+}
+
+if (!function_exists('replay_nonce_field')) {
+    /**
+     * Generate a hidden nonce field for forms.
+     *
+     * Performance: O(1) - Direct nonce generation and HTML output
+     *
+     * @param int $ttl Time-to-live in seconds (default: 300 = 5 minutes)
+     * @return string HTML input field
+     */
+    function replay_nonce_field(int $ttl = 300): string
+    {
+        $nonce = replay_nonce($ttl);
+        return '<input type="hidden" name="_nonce" value="' . htmlspecialchars($nonce, ENT_QUOTES, 'UTF-8') . '">';
+    }
+}
+
+if (!function_exists('security_fields')) {
+    /**
+     * Generate both CSRF token and replay nonce fields for forms.
+     *
+     * Convenience function to add both security fields at once.
+     *
+     * Performance: O(1) - Direct generation and HTML output
+     *
+     * @param int $nonceTtl Time-to-live for nonce in seconds (default: 300 = 5 minutes)
+     * @return string Combined HTML input fields
+     */
+    function security_fields(int $nonceTtl = 300): string
+    {
+        return csrf_field() . "\n" . replay_nonce_field($nonceTtl);
+    }
+}
+
 if (!function_exists('e')) {
     /**
      * Escape HTML special characters (alias for Xss::escape).

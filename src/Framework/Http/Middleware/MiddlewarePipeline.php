@@ -51,7 +51,7 @@ final class MiddlewarePipeline
      * Processes middleware in reverse order so they execute in declaration order.
      * Uses the Onion pattern - each middleware wraps the next layer.
      *
-     * @param array<string> $middlewareStack Middleware class names or aliases.
+     * @param array<string|callable> $middlewareStack Middleware class names, aliases, or callable factories.
      * @param callable $coreHandler Core handler (controller/action).
      * @return callable Composed pipeline function.
      */
@@ -70,13 +70,21 @@ final class MiddlewarePipeline
     /**
      * Wrap a single middleware around the next handler.
      *
-     * @param string $middlewareIdentifier Middleware class name or alias.
+     * Supports both string identifiers (class names/aliases) and callable factories.
+     *
+     * @param string|callable $middlewareIdentifier Middleware class name, alias, or callable factory.
      * @param callable $next Next handler in the pipeline.
      * @return callable Wrapped handler.
      */
-    private function wrapMiddleware(string $middlewareIdentifier, callable $next): callable
+    private function wrapMiddleware(string|callable $middlewareIdentifier, callable $next): callable
     {
-        $middlewareClass = $this->resolveMiddleware($middlewareIdentifier);
+        // If it's already a callable (factory), use it directly
+        if (is_callable($middlewareIdentifier)) {
+            $middlewareClass = $middlewareIdentifier;
+        } else {
+            // Otherwise, resolve from aliases or use as class name
+            $middlewareClass = $this->resolveMiddleware($middlewareIdentifier);
+        }
 
         return function (Request $request, Response $response) use ($middlewareClass, $next) {
             $middleware = $this->instantiateMiddleware($middlewareClass);

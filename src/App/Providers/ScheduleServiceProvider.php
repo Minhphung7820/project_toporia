@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Jobs\TestProcess;
 use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Foundation\ServiceProvider;
 use Toporia\Framework\Schedule\Scheduler;
@@ -107,9 +108,9 @@ final class ScheduleServiceProvider extends ServiceProvider
 
         // Example 8: Generate daily report (weekdays only)
         $scheduler->call(function () {
-            echo "Daily report generated\n";
+            TestProcess::dispatch();
         })->weekdays()
-            ->dailyAt('12:35')
+            ->dailyAt('22:00')
             ->timezone('Asia/Ho_Chi_Minh')
             ->description('Generate daily report');
 

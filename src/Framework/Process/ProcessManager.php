@@ -222,24 +222,6 @@ final class ProcessManager implements ProcessManagerInterface
     }
 
     /**
-     * Check finished processes (triggers output collection in isRunning()).
-     * Performance: O(N) where N = number of processes
-     *
-     * NOTE: We don't collect results or remove processes here.
-     * This just triggers isRunning() which internally calls collectOutput().
-     * The actual result collection happens in wait().
-     *
-     * @return void
-     */
-    private function collectFinished(): void
-    {
-        foreach ($this->processes as $process) {
-            // Just check if running - this triggers collectOutput() internally
-            $process->isRunning();
-        }
-    }
-
-    /**
      * Fallback to synchronous execution when PCNTL not available.
      *
      * @return array

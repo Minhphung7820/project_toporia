@@ -13,6 +13,8 @@ use App\Presentation\Http\Middleware\Authenticate;
 use App\Presentation\Http\Middleware\LogRequest;
 use App\Presentation\Http\Middleware\ValidateJsonRequest;
 use Toporia\Framework\Http\Middleware\CsrfProtection;
+use Toporia\Framework\Http\Middleware\ReplayAttackProtection;
+use Toporia\Framework\Http\Middleware\HandleCors;
 use Toporia\Framework\Http\Middleware\ThrottleRequests;
 
 return [
@@ -35,11 +37,21 @@ return [
             // Web routes middleware
             AddSecurityHeaders::class,  // Security headers for web
             CsrfProtection::class,      // CSRF protection for state-changing requests
+            // ReplayAttackProtection middleware with config from security.php
+            fn($container) => new ReplayAttackProtection(
+                $container->get('replay'),
+                $container->get('config')->get('security.replay.nonce_ttl', 300),
+                $container->get('config')->get('security.replay.cleanup_probability', 100)
+            ),
             // LogRequest::class,        // Uncomment to log web requests
         ],
 
         'api' => [
             // API routes middleware
+            // CORS middleware with config from security.php
+            fn($container) => new HandleCors(
+                $container->get('config')->get('security.cors', [])
+            ),
             ValidateJsonRequest::class,  // Validate JSON for API
             // ThrottleRequests middleware should be added per-route with specific limits
             // Example: ->middleware([ThrottleRequests::with($limiter, 60, 1)])
@@ -70,6 +82,10 @@ return [
         'security' => AddSecurityHeaders::class,
         'json' => ValidateJsonRequest::class,
         'csrf' => CsrfProtection::class,
+        'replay' => ReplayAttackProtection::class,
+        'cors' => fn($container) => new HandleCors(
+            $container->get('config')->get('security.cors', [])
+        ),
 
         // Add more aliases here as needed
         // 'guest' => GuestMiddleware::class,
