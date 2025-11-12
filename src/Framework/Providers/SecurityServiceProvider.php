@@ -8,6 +8,7 @@ use Toporia\Framework\Container\ContainerInterface;
 use Toporia\Framework\Foundation\ServiceProvider;
 use Toporia\Framework\Security\CsrfTokenManagerInterface;
 use Toporia\Framework\Security\SessionCsrfTokenManager;
+use Toporia\Framework\Security\XssService;
 use Toporia\Framework\Auth\GateInterface;
 use Toporia\Framework\Auth\Gate;
 use Toporia\Framework\Auth\AuthInterface;
@@ -47,6 +48,13 @@ final class SecurityServiceProvider extends ServiceProvider
         });
 
         $container->bind('cookie', fn($c) => $c->get(CookieJar::class));
+
+        // XSS Protection Service
+        $container->singleton(XssService::class, function () {
+            return new XssService();
+        });
+
+        $container->bind('xss', fn($c) => $c->get(XssService::class));
     }
 
     public function boot(ContainerInterface $container): void

@@ -12,6 +12,8 @@ use App\Presentation\Http\Middleware\AddSecurityHeaders;
 use App\Presentation\Http\Middleware\Authenticate;
 use App\Presentation\Http\Middleware\LogRequest;
 use App\Presentation\Http\Middleware\ValidateJsonRequest;
+use Toporia\Framework\Http\Middleware\CsrfProtection;
+use Toporia\Framework\Http\Middleware\ThrottleRequests;
 
 return [
     /*
@@ -32,14 +34,16 @@ return [
         'web' => [
             // Web routes middleware
             AddSecurityHeaders::class,  // Security headers for web
+            CsrfProtection::class,      // CSRF protection for state-changing requests
             // LogRequest::class,        // Uncomment to log web requests
         ],
 
         'api' => [
             // API routes middleware
             ValidateJsonRequest::class,  // Validate JSON for API
+            // ThrottleRequests middleware should be added per-route with specific limits
+            // Example: ->middleware([ThrottleRequests::with($limiter, 60, 1)])
             // LogRequest::class,         // Uncomment to log API requests
-            // ThrottleRequests::class,   // Uncomment for rate limiting
         ],
     ],
 
@@ -65,11 +69,12 @@ return [
         'log' => LogRequest::class,
         'security' => AddSecurityHeaders::class,
         'json' => ValidateJsonRequest::class,
+        'csrf' => CsrfProtection::class,
 
         // Add more aliases here as needed
         // 'guest' => GuestMiddleware::class,
         // 'verified' => EnsureEmailIsVerified::class,
-        // 'throttle' => ThrottleRequests::class,
+        // 'throttle' => ThrottleRequests::class,  // Note: Requires RateLimiter instance
         // 'admin' => AdminMiddleware::class,
         // 'cors' => HandleCors::class,
     ],

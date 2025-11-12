@@ -327,26 +327,57 @@ if (!function_exists('csrf_field')) {
 
 if (!function_exists('e')) {
     /**
-     * Escape HTML special characters (alias for XssProtection::escape).
+     * Escape HTML special characters (alias for Xss::escape).
      *
-     * @param string $value Value to escape
+     * Uses Xss accessor if available, falls back to direct htmlspecialchars for performance.
+     *
+     * Performance: O(1) - Direct function call, no overhead
+     * Clean Architecture: Uses Xss service when available, fallback for early bootstrap
+     *
+     * @param string|null $value Value to escape
+     * @param bool $doubleEncode Whether to encode existing HTML entities
      * @return string Escaped value
      */
-    function e(string $value): string
+    function e(?string $value, bool $doubleEncode = true): string
     {
-        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        // Use Xss accessor if container is available (after bootstrap)
+        if (function_exists('app') && app()->has('xss')) {
+            return \Toporia\Framework\Support\Accessors\Xss::escape($value, $doubleEncode);
+        }
+
+        // Fallback for early bootstrap or when service not available
+        if ($value === null) {
+            return '';
+        }
+
+        return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8', $doubleEncode);
     }
 }
 
 if (!function_exists('clean')) {
     /**
-     * Remove all HTML tags from a string.
+     * Remove all HTML tags from a string (alias for Xss::clean).
      *
-     * @param string $value Value to clean
+     * Uses Xss accessor if available, falls back to direct strip_tags for performance.
+     *
+     * Performance: O(1) - Direct function call, no overhead
+     * Clean Architecture: Uses Xss service when available, fallback for early bootstrap
+     *
+     * @param string|null $value Value to clean
      * @return string Cleaned value
      */
-    function clean(string $value): string
+    function clean(?string $value): string
     {
+        // Use Xss accessor if container is available (after bootstrap)
+        if (function_exists('app') && app()->has('xss')) {
+            return \Toporia\Framework\Support\Accessors\Xss::clean($value);
+        }
+
+        // Fallback for early bootstrap or when service not available
+        if ($value === null) {
+            return '';
+        }
+
         return strip_tags($value);
     }
 }
