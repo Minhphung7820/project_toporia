@@ -578,14 +578,19 @@ final class RabbitMQQueue implements QueueInterface
      * - Separation of Concerns: Isolated from fast path logic
      * - High Reusability: Can be used independently if needed
      *
+     * Note: Uses shorter timeout (0.5s) for faster signal response.
+     * This allows Ctrl+C to be handled more quickly during blocking wait.
+     *
      * @param AMQPChannel $channel
      * @param string $queue
      * @return JobInterface|null
      */
     private function popWithConsume(AMQPChannel $channel, string $queue): ?JobInterface
     {
-        // Get timeout from options (default 1 second)
-        $timeout = $this->options['pop_timeout'] ?? 1.0;
+        // Use shorter timeout (0.5s) for faster signal response
+        // This allows Ctrl+C to interrupt wait() more quickly
+        // Worker will call this repeatedly, so shorter timeout = faster response
+        $timeout = $this->options['pop_timeout'] ?? 0.5; // Reduced from 1.0 to 0.5 seconds
 
         // Use basic_consume with blocking wait for efficient polling
         // This is push-based: server pushes messages when available

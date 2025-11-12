@@ -35,12 +35,17 @@ final class TestProcess extends Job
      *
      * Dependencies are auto-injected by the Worker via container.
      *
-     * @param MailerInterface $mailer Injected mailer service
+     * Note: Closures cannot be serialized, so we create them in handle() method
+     * after the job is deserialized. This ensures Process::run() works correctly
+     * with RabbitMQ, Redis, and Database queues.
+     *
      * @return void
      * @throws \RuntimeException If sending fails
      */
     public function handle(): void
     {
+        // Create closures here (after deserialization) instead of in constructor
+        // This ensures they work correctly with all queue drivers (RabbitMQ, Redis, Database)
         Process::run([
             fn() => $this->logTest(),
             fn() => $this->logTest(),

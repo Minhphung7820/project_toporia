@@ -98,7 +98,8 @@ final class ProcessManager implements ProcessManagerInterface
         $pendingCount = count($this->pending);
         $processed = 0;
 
-        while ($processed < $pendingCount || count($this->processes) > 0) {
+        // Start all processes up to concurrency limit
+        while ($processed < $pendingCount) {
             // Check for shutdown signal
             if ($this->shutdownRequested) {
                 $this->killAll(SIGTERM);
@@ -125,13 +126,14 @@ final class ProcessManager implements ProcessManagerInterface
                 $processed++;
             }
 
-            // If all pending tasks are started, break and wait
+            // If all tasks started, break immediately (no need to wait in loop)
             if ($processed >= $pendingCount) {
                 break;
             }
 
-            // Small sleep to prevent CPU spinning
-            usleep(10000); // 10ms
+            // Check for finished processes and start new ones
+            // Non-blocking check to avoid unnecessary delays
+            $this->collectFinishedProcesses();
         }
 
         // Wait for remaining processes
@@ -146,23 +148,55 @@ final class ProcessManager implements ProcessManagerInterface
     /**
      * Wait for all processes to complete.
      * Performance: O(N) where N = number of processes
+     * Optimized: Non-blocking check first, then blocking wait only when needed
      *
      * @return array
      */
     public function wait(): array
     {
-        foreach ($this->processes as $pid => $process) {
-            // Always call wait() - it handles both running and already-reaped processes
-            // wait() will collect output after ensuring process is fully terminated
-            $exitCode = $process->wait();
-
-            // Collect output
-            $output = $process->getOutput();
-            $this->results[] = $output;
-            unset($this->processes[$pid]);
+        // Wait for all remaining processes
+        while (count($this->processes) > 0) {
+            foreach ($this->processes as $pid => $process) {
+                // Non-blocking check first (fast path)
+                if (!$process->isRunning()) {
+                    // Process already finished - collect output immediately
+                    $exitCode = $process->wait();
+                    $output = $process->getOutput();
+                    $this->results[] = $output;
+                    unset($this->processes[$pid]);
+                } else {
+                    // Process still running - do blocking wait for this one
+                    $exitCode = $process->wait();
+                    $output = $process->getOutput();
+                    $this->results[] = $output;
+                    unset($this->processes[$pid]);
+                    break; // Break to restart loop and check others
+                }
+            }
         }
 
         return $this->results;
+    }
+
+    /**
+     * Collect finished processes without blocking.
+     * Performance: O(N) where N = number of processes
+     * Used in run() loop to start new processes as soon as slots become available
+     *
+     * @return void
+     */
+    private function collectFinishedProcesses(): void
+    {
+        foreach ($this->processes as $pid => $process) {
+            // Non-blocking check
+            if (!$process->isRunning()) {
+                // Process finished - collect output
+                $exitCode = $process->wait();
+                $output = $process->getOutput();
+                $this->results[] = $output;
+                unset($this->processes[$pid]);
+            }
+        }
     }
 
     /**

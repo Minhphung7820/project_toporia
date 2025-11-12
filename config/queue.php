@@ -78,7 +78,7 @@ return [
             'read_write_timeout' => (float) env('RABBITMQ_READ_WRITE_TIMEOUT', 3.0),
             'heartbeat' => (int) env('RABBITMQ_HEARTBEAT', 0),
             'prefetch_count' => (int) env('RABBITMQ_PREFETCH_COUNT', 10), // Default 10 for better throughput
-            'pop_timeout' => (float) env('RABBITMQ_POP_TIMEOUT', 1.0), // Timeout for blocking wait (seconds)
+            'pop_timeout' => (float) env('RABBITMQ_POP_TIMEOUT', 0.5), // Timeout for blocking wait (seconds) - shorter for faster Ctrl+C response
             // Delayed message plugin (optional)
             'delayed_exchange' => env('RABBITMQ_DELAYED_EXCHANGE', false),
             // Dead letter queue (optional)

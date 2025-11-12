@@ -63,10 +63,22 @@ final class Worker
         $this->logger->info("Queue worker started. Listening on queue: {$queueNames}");
 
         while (!$this->shouldQuit) {
+            // Dispatch pending signals before checking for jobs
+            // This ensures Ctrl+C is handled even during blocking operations
+            if (function_exists('pcntl_signal_dispatch')) {
+                pcntl_signal_dispatch();
+            }
+
             $job = $this->getNextJob($queueArray);
+
+            // Check shouldQuit again after getNextJob (may have been set during blocking wait)
+            if ($this->shouldQuit) {
+                break;
+            }
 
             if ($job === null) {
                 // No job available on any queue, sleep (don't spam logs)
+                // sleep() is now interruptible and will check shouldQuit
                 $this->sleep();
                 continue;
             }
@@ -235,13 +247,34 @@ final class Worker
     }
 
     /**
-     * Sleep for the configured duration
+     * Sleep for the configured duration with signal interruption support.
+     *
+     * Uses interruptible sleep to allow graceful shutdown during sleep.
+     * Signals (Ctrl+C) can interrupt the sleep immediately.
+     *
+     * Performance: O(1) - Simple sleep loop
+     * Clean Architecture: Handles signal dispatch during blocking operations
      *
      * @return void
      */
     private function sleep(): void
     {
-        sleep($this->sleep);
+        // Use interruptible sleep to allow signal handling
+        // Sleep in 1-second chunks and check shouldQuit between chunks
+        // This allows Ctrl+C to interrupt sleep immediately
+        $remaining = $this->sleep;
+
+        while ($remaining > 0 && !$this->shouldQuit) {
+            // Sleep in 1-second chunks to allow signal interruption
+            $chunk = min(1, $remaining);
+            sleep((int) $chunk);
+            $remaining -= $chunk;
+
+            // Dispatch pending signals (important for signal handling)
+            if (function_exists('pcntl_signal_dispatch')) {
+                pcntl_signal_dispatch();
+            }
+        }
     }
 
     /**
