@@ -7,6 +7,8 @@ namespace Toporia\Framework\Realtime\Brokers;
 use Toporia\Framework\Realtime\Contracts\{BrokerInterface, MessageInterface};
 use Toporia\Framework\Realtime\RealtimeManager;
 use Toporia\Framework\Realtime\Message;
+use Toporia\Framework\Realtime\Brokers\Kafka\TopicStrategy\TopicStrategyInterface;
+use Toporia\Framework\Realtime\Brokers\Kafka\TopicStrategy\TopicStrategyFactory;
 
 /**
  * Kafka Broker
@@ -87,7 +89,7 @@ final class KafkaBroker implements BrokerInterface
     private array $config;
 
     /**
-     * @var string Topic prefix for all channels
+     * @var string Topic prefix for all channels (legacy, kept for backward compatibility)
      */
     private string $topicPrefix;
 
@@ -100,6 +102,21 @@ final class KafkaBroker implements BrokerInterface
      * @var array<string> Kafka broker addresses
      */
     private array $brokers;
+
+    /**
+     * @var TopicStrategyInterface Topic strategy for mapping channels to topics
+     */
+    private TopicStrategyInterface $topicStrategy;
+
+    /**
+     * @var bool Whether to use manual commit (more reliable)
+     */
+    private bool $manualCommit;
+
+    /**
+     * @var array<string, int> Channel → partition mapping cache
+     */
+    private array $partitionCache = [];
 
     /**
      * @var bool Whether consumer loop is running
@@ -159,6 +176,10 @@ final class KafkaBroker implements BrokerInterface
 
         $this->topicPrefix = $config['topic_prefix'] ?? 'realtime';
         $this->consumerGroup = $config['consumer_group'] ?? 'realtime-servers';
+        $this->manualCommit = (bool) ($config['manual_commit'] ?? false);
+
+        // Initialize topic strategy
+        $this->topicStrategy = TopicStrategyFactory::create($config);
 
         // Initialize Kafka client
         $this->initialize();
@@ -220,8 +241,14 @@ final class KafkaBroker implements BrokerInterface
 
         // Set consumer group
         $consumerConfig->set('group.id', $this->consumerGroup);
-        $consumerConfig->set('enable.auto.commit', 'true');
+
+        // Manual commit for better reliability
+        $consumerConfig->set('enable.auto.commit', $this->manualCommit ? 'false' : 'true');
         $consumerConfig->set('auto.offset.reset', 'earliest');
+
+        // Performance optimizations
+        $consumerConfig->set('fetch.min.bytes', '1024'); // Min bytes per fetch
+        $consumerConfig->set('fetch.max.wait.ms', '500'); // Max wait time
 
         // Create producer
         $producer = new \RdKafka\Producer($producerConfig);
@@ -315,15 +342,56 @@ final class KafkaBroker implements BrokerInterface
     /**
      * Get Kafka topic name for a channel.
      *
+     * Uses topic strategy for flexible topic mapping.
+     *
      * @param string $channel Channel name
      * @return string Topic name
      */
     private function getTopicName(string $channel): string
     {
-        // Sanitize channel name for Kafka topic naming
-        // Kafka topics: alphanumeric, dots, dashes, underscores
-        $sanitized = preg_replace('/[^a-zA-Z0-9._-]/', '_', $channel);
-        return "{$this->topicPrefix}_{$sanitized}";
+        return $this->topicStrategy->getTopicName($channel);
+    }
+
+    /**
+     * Get partition number for a channel.
+     *
+     * Uses topic strategy for consistent partitioning.
+     *
+     * @param string $channel Channel name
+     * @param string $topicName Topic name
+     * @return int Partition number
+     */
+    private function getPartition(string $channel, string $topicName): int
+    {
+        // Cache partition calculation
+        $cacheKey = "{$topicName}:{$channel}";
+        if (isset($this->partitionCache[$cacheKey])) {
+            return $this->partitionCache[$cacheKey];
+        }
+
+        // Get partition count for topic (default to 10 if not configured)
+        $partitionCount = 10; // Default, can be configured per topic
+        if ($this->topicStrategy instanceof \Toporia\Framework\Realtime\Brokers\Kafka\TopicStrategy\GroupedTopicStrategy) {
+            $partitionCount = $this->topicStrategy->getPartitionCount($channel);
+        }
+
+        $partition = $this->topicStrategy->getPartition($channel, $partitionCount);
+        $this->partitionCache[$cacheKey] = $partition;
+
+        return $partition;
+    }
+
+    /**
+     * Get message key for a channel.
+     *
+     * Used for partitioning and message ordering.
+     *
+     * @param string $channel Channel name
+     * @return string|null Message key
+     */
+    private function getMessageKey(string $channel): ?string
+    {
+        return $this->topicStrategy->getMessageKey($channel);
     }
 
     /**
@@ -346,12 +414,14 @@ final class KafkaBroker implements BrokerInterface
         }
 
         $topicName = $this->getTopicName($channel);
+        $partition = $this->getPartition($channel, $topicName);
+        $key = $this->getMessageKey($channel);
         $payload = $message->toJson();
 
         // Publish to Kafka topic
         if ($this->producer instanceof \RdKafka\Producer) {
             // Using enqueue/rdkafka - optimized with batching and topic caching
-            $this->publishRdKafka($topicName, $payload);
+            $this->publishRdKafka($topicName, $partition, $key, $payload);
         } elseif (class_exists(\Kafka\Producer::class)) {
             // Using nmred/kafka-php - lazy initialization
             if ($this->producer === null) {
@@ -365,7 +435,8 @@ final class KafkaBroker implements BrokerInterface
                 [
                     'topic' => $topicName,
                     'value' => $payload,
-                    'partition' => 0,
+                    'partition' => $partition,
+                    'key' => $key,
                 ]
             ]);
         } else {
@@ -385,7 +456,7 @@ final class KafkaBroker implements BrokerInterface
      * @param string $payload Message payload
      * @return void
      */
-    private function publishRdKafka(string $topicName, string $payload): void
+    private function publishRdKafka(string $topicName, int $partition, ?string $key, string $payload): void
     {
         /** @var \RdKafka\Producer $producer */
         $producer = $this->producer;
@@ -399,6 +470,8 @@ final class KafkaBroker implements BrokerInterface
         // Add to buffer for batching
         $this->messageBuffer[] = [
             'topic' => $topic,
+            'partition' => $partition,
+            'key' => $key,
             'payload' => $payload,
             'timestamp' => microtime(true) * 1000 // milliseconds
         ];
@@ -434,7 +507,19 @@ final class KafkaBroker implements BrokerInterface
         foreach ($this->messageBuffer as $item) {
             /** @var \RdKafka\ProducerTopic $topic */
             $topic = $item['topic'];
-            $topic->produce(RD_KAFKA_PARTITION_UA, 0, $item['payload']);
+            $partition = $item['partition'] ?? RD_KAFKA_PARTITION_UA;
+            $key = $item['key'] ?? null;
+            $payload = $item['payload'];
+
+            // Use partition and key for better distribution
+            // producev() signature: producev(partition, msgflags, payload, key, headers)
+            if ($key !== null && method_exists($topic, 'producev')) {
+                $topic->producev($partition, 0, $payload, $key);
+            } else {
+                // Fallback: use produce() with partition
+                // Note: key won't be used, but partition will help distribution
+                $topic->produce($partition, 0, $payload);
+            }
         }
 
         // Flush producer (send all buffered messages)
@@ -467,8 +552,11 @@ final class KafkaBroker implements BrokerInterface
 
         $topicName = $this->getTopicName($channel);
 
-        // Store callback
-        $this->subscriptions[$topicName] = $callback;
+        // Store callback with channel mapping for later use
+        if (!isset($this->subscriptions[$topicName])) {
+            $this->subscriptions[$topicName] = [];
+        }
+        $this->subscriptions[$topicName][$channel] = $callback;
 
         // Subscribe to topic (consumer will be started separately via command)
         // This method just registers the subscription
@@ -695,8 +783,22 @@ final class KafkaBroker implements BrokerInterface
      */
     private function processBatch(array $batch): void
     {
+        /** @var \RdKafka\KafkaConsumer|null $consumer */
+        $consumer = $this->consumer instanceof \RdKafka\KafkaConsumer ? $this->consumer : null;
+
         foreach ($batch as $message) {
-            $this->processMessage($message->topic_name, $message->payload);
+            try {
+                $this->processMessage($message->topic_name, $message->payload, $message->key);
+
+                // Manual commit after successful processing
+                if ($this->manualCommit && $consumer) {
+                    $consumer->commit($message);
+                }
+            } catch (\Throwable $e) {
+                // Don't commit on error - message will be retried
+                error_log("Error processing message: {$e->getMessage()}");
+                throw $e; // Re-throw to trigger DLQ
+            }
         }
     }
 
@@ -718,15 +820,18 @@ final class KafkaBroker implements BrokerInterface
     /**
      * Process a single message.
      *
+     * Supports both old format (single callback) and new format (array of callbacks per channel).
+     *
      * @param string $topicName Topic name
      * @param string $payload Message payload
+     * @param string|null $messageKey Message key (channel name if using grouped strategy)
      * @return void
      */
-    private function processMessage(string $topicName, string $payload): void
+    private function processMessage(string $topicName, string $payload, ?string $messageKey = null): void
     {
-        $callback = $this->subscriptions[$topicName] ?? null;
+        $subscriptions = $this->subscriptions[$topicName] ?? null;
 
-        if (!$callback) {
+        if (!$subscriptions) {
             return; // No subscription for this topic
         }
 
@@ -734,11 +839,49 @@ final class KafkaBroker implements BrokerInterface
             // Decode message
             $message = Message::fromJson($payload);
 
-            // Invoke callback
-            $callback($message);
+            // Determine channel from message key or topic name
+            $channel = $messageKey ?? $this->extractChannelFromTopic($topicName);
+
+            // Handle new format: array of callbacks per channel
+            if (is_array($subscriptions)) {
+                $callback = $subscriptions[$channel] ?? null;
+                if ($callback) {
+                    $callback($message);
+                } else {
+                    // Fallback: try all callbacks (for backward compatibility)
+                    foreach ($subscriptions as $cb) {
+                        if (is_callable($cb)) {
+                            $cb($message);
+                        }
+                    }
+                }
+            } elseif (is_callable($subscriptions)) {
+                // Old format: single callback (backward compatibility)
+                $subscriptions($message);
+            }
         } catch (\Throwable $e) {
             error_log("Kafka message processing error on {$topicName}: {$e->getMessage()}");
+            throw $e; // Re-throw for batch processing
         }
+    }
+
+    /**
+     * Extract channel name from topic name.
+     *
+     * Used for backward compatibility with old topic naming.
+     *
+     * @param string $topicName Topic name
+     * @return string Channel name
+     */
+    private function extractChannelFromTopic(string $topicName): string
+    {
+        // Remove topic prefix
+        if (str_starts_with($topicName, $this->topicPrefix . '_')) {
+            return str_replace($this->topicPrefix . '_', '', $topicName);
+        }
+
+        // For grouped topics, try to extract from message or use topic name
+        return $topicName;
     }
 
     /**
@@ -757,7 +900,20 @@ final class KafkaBroker implements BrokerInterface
     public function unsubscribe(string $channel): void
     {
         $topicName = $this->getTopicName($channel);
-        unset($this->subscriptions[$topicName]);
+
+        // Handle both old format (single callback) and new format (array of callbacks)
+        if (isset($this->subscriptions[$topicName])) {
+            if (is_array($this->subscriptions[$topicName])) {
+                unset($this->subscriptions[$topicName][$channel]);
+                // Remove topic entry if no more channels
+                if (empty($this->subscriptions[$topicName])) {
+                    unset($this->subscriptions[$topicName]);
+                }
+            } else {
+                // Old format: single callback
+                unset($this->subscriptions[$topicName]);
+            }
+        }
     }
 
     /**
@@ -765,11 +921,19 @@ final class KafkaBroker implements BrokerInterface
      */
     public function getSubscriberCount(string $channel): int
     {
-        // Kafka doesn't provide direct subscriber count
-        // This would require querying Kafka's consumer group API
-        // For now, return 1 if subscribed, 0 otherwise
         $topicName = $this->getTopicName($channel);
-        return isset($this->subscriptions[$topicName]) ? 1 : 0;
+        $subscriptions = $this->subscriptions[$topicName] ?? null;
+
+        if (!$subscriptions) {
+            return 0;
+        }
+
+        // Handle both formats
+        if (is_array($subscriptions)) {
+            return isset($subscriptions[$channel]) ? 1 : 0;
+        }
+
+        return 1; // Old format: single callback
     }
 
     /**

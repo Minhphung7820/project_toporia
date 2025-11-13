@@ -20,16 +20,50 @@ use Toporia\Framework\Realtime\Contracts\{
  * Central coordinator for realtime communication system.
  * Manages transports, brokers, channels, and connections.
  *
+ * Architecture Overview:
+ * ======================
+ *
+ * 1. TRANSPORTS (Server <-> Client)
+ *    - Purpose: Communication between server and clients
+ *    - Direction: Bidirectional (WebSocket) or Server->Client (SSE, Long-polling)
+ *    - Types: WebSocket, SSE, Long-polling, Memory (testing)
+ *    - Usage: HTTP requests, WebSocket connections
+ *
+ * 2. BROKERS (Server <-> Server)
+ *    - Purpose: Multi-server message distribution
+ *    - Direction: Server-to-server only
+ *    - Types: Redis Pub/Sub, Kafka, RabbitMQ, NATS, PostgreSQL
+ *    - PRODUCER (publish): Can be called from ANYWHERE
+ *      - HTTP requests, CLI commands, background jobs, events, etc.
+ *      - Via broadcast() method (automatically publishes to broker)
+ *    - CONSUMER (consume): ONLY in CLI commands
+ *      - Long-lived processes (e.g., realtime:kafka:consume)
+ *      - NEVER consume in HTTP requests (blocks request)
+ *
+ * Flow:
+ * -----
+ * ANYWHERE → broadcast() → [Publish to Broker] + [Broadcast Local]
+ *   (HTTP, CLI, Jobs, Events, etc.)
+ * CLI Command → consume() → [Receive from Broker] → broadcastLocal() → Transport → Clients
+ *
  * Performance:
  * - O(1) channel lookup via hash table
  * - O(1) connection lookup via hash table
  * - O(N) broadcast where N = subscribers
  * - Lazy channel creation
+ * - O(1) broker publish
  *
- * Architecture:
+ * Design Patterns:
  * - Factory pattern for transports/brokers
  * - Repository pattern for channels/connections
  * - Singleton pattern for manager instance
+ *
+ * SOLID Principles:
+ * - Single Responsibility: Manages realtime communication only
+ * - Open/Closed: Extensible via new transports/brokers
+ * - Liskov Substitution: All transports/brokers implement interfaces
+ * - Interface Segregation: Separate interfaces for each concern
+ * - Dependency Inversion: Depends on abstractions (interfaces)
  *
  * @package Toporia\Framework\Realtime
  */
@@ -72,18 +106,70 @@ final class RealtimeManager implements RealtimeManagerInterface
 
     /**
      * {@inheritdoc}
+     *
+     * Broadcast Architecture:
+     * - Transport: Server <-> Client (WebSocket, SSE, Long-polling)
+     * - Broker: Server <-> Server (Redis, Kafka, RabbitMQ, NATS)
+     *
+     * When broker is available (multi-server):
+     * 1. Publish to broker (for other servers to receive)
+     * 2. Broadcast locally (for clients on this server to receive)
+     *
+     * When no broker (single server):
+     * - Only broadcast locally
+     *
+     * Usage:
+     * - Can be called from ANYWHERE: HTTP requests, CLI commands, background jobs, events, etc.
+     * - Producer (publish to broker) is available everywhere
+     * - Consumer (consume from broker) is ONLY in CLI commands
+     *
+     * Examples:
+     * - HTTP Controller: $realtime->broadcast('user.1', 'message', $data)
+     * - CLI Command: $realtime->broadcast('user.1', 'message', $data)
+     * - Background Job: $realtime->broadcast('user.1', 'message', $data)
+     * - Event Listener: $realtime->broadcast('user.1', 'message', $data)
+     *
+     * Performance:
+     * - O(1) broker publish
+     * - O(N) local broadcast where N = local subscribers
      */
     public function broadcast(string $channel, string $event, mixed $data): void
     {
         $message = Message::event($channel, $event, $data);
 
-        // Broadcast via broker if available (multi-server)
+        // Always broadcast locally first (for clients on this server)
+        $channelInstance = $this->channel($channel);
+        $channelInstance->broadcast($message);
+
+        // If broker is available, also publish to broker (for other servers)
+        // Producer can be called from anywhere (HTTP, CLI, jobs, events, etc.)
+        // Consumer is ONLY in CLI commands (long-lived processes)
         if ($broker = $this->broker()) {
             $broker->publish($channel, $message);
-            return;
         }
+    }
 
-        // Local broadcast only (single server)
+    /**
+     * Broadcast locally only (without publishing to broker).
+     *
+     * Used when receiving messages from broker in CLI commands.
+     * Prevents infinite loop: broker message → broadcast → broker publish → ...
+     *
+     * Architecture:
+     * - Called by CLI consumer commands when receiving messages from broker
+     * - Only broadcasts to local clients via transport
+     * - Does NOT publish to broker (to prevent message loop)
+     *
+     * @param string $channel Channel name
+     * @param string $event Event name
+     * @param mixed $data Event data
+     * @return void
+     */
+    public function broadcastLocal(string $channel, string $event, mixed $data): void
+    {
+        $message = Message::event($channel, $event, $data);
+
+        // Broadcast locally only (no broker publish)
         $channelInstance = $this->channel($channel);
         $channelInstance->broadcast($message);
     }
@@ -166,6 +252,26 @@ final class RealtimeManager implements RealtimeManagerInterface
 
     /**
      * {@inheritdoc}
+     *
+     * Get broker instance for server-to-server communication.
+     *
+     * Architecture:
+     * - Brokers are used ONLY for server-to-server communication
+     * - Broker PRODUCER (publish): Can be called from ANYWHERE
+     *   - HTTP requests, CLI commands, background jobs, events, etc.
+     *   - Via broadcast() method (automatically publishes to broker)
+     * - Broker CONSUMER (consume): ONLY in CLI commands
+     *   - Long-lived processes (e.g., realtime:kafka:consume)
+     *   - NEVER consume in HTTP requests (blocks request)
+     *
+     * Usage:
+     * - Publishing: $manager->broadcast() → automatically publishes to broker
+     *   - Can be called from HTTP, CLI, jobs, events, anywhere!
+     * - Consuming: Run CLI command (e.g., php console realtime:kafka:consume)
+     *   - Only in CLI commands (long-lived processes)
+     *
+     * @param string|null $name Broker name (null = default)
+     * @return BrokerInterface|null
      */
     public function broker(?string $name = null): ?BrokerInterface
     {

@@ -135,6 +135,17 @@ return [
             'topic_prefix' => env('KAFKA_TOPIC_PREFIX', 'realtime'),
             'consumer_group' => env('KAFKA_CONSUMER_GROUP', 'realtime-servers'),
 
+            // Topic Strategy: 'one-per-channel' (legacy) or 'grouped' (recommended)
+            'topic_strategy' => env('KAFKA_TOPIC_STRATEGY', 'grouped'),
+
+            // Topic Mapping (for grouped strategy)
+            'topic_mapping' => config('kafka.topic_mapping', []),
+            'default_topic' => env('KAFKA_DEFAULT_TOPIC', 'realtime'),
+            'default_partitions' => (int) env('KAFKA_DEFAULT_PARTITIONS', 10),
+
+            // Manual Commit (recommended for production)
+            'manual_commit' => env('KAFKA_MANUAL_COMMIT', false),
+
             // Performance optimizations
             'buffer_size' => (int) env('KAFKA_BUFFER_SIZE', 100), // Messages per batch
             'flush_interval_ms' => (int) env('KAFKA_FLUSH_INTERVAL_MS', 100), // Flush every 100ms
@@ -151,7 +162,6 @@ return [
 
             // Consumer configuration (rdkafka format)
             'consumer_config' => [
-                'enable.auto.commit' => 'true',
                 'auto.offset.reset' => 'earliest',
                 'session.timeout.ms' => '30000',
                 'max.poll.interval.ms' => '300000',

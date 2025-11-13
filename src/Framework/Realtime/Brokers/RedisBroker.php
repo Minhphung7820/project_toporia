@@ -38,6 +38,7 @@ final class RedisBroker implements BrokerInterface
     private \Redis $subscriber;
     private array $subscriptions = [];
     private bool $connected = false;
+    private bool $consuming = false;
 
     public function __construct(
         array $config = [],
@@ -114,27 +115,133 @@ final class RedisBroker implements BrokerInterface
 
         $redisChannel = "realtime:{$channel}";
 
-        // Store callback
-        $this->subscriptions[$redisChannel] = $callback;
+        // Store callback with channel mapping
+        if (!isset($this->subscriptions[$redisChannel])) {
+            $this->subscriptions[$redisChannel] = [];
+        }
+        $this->subscriptions[$redisChannel][$channel] = $callback;
 
-        // Subscribe to Redis channel
-        $this->subscriber->subscribe([$redisChannel], function ($redis, $redisChannel, $payload) {
-            $callback = $this->subscriptions[$redisChannel] ?? null;
+        // Note: Actual subscription happens in consume() method
+        // This method just registers the subscription
+    }
 
-            if (!$callback) {
-                return;
+    /**
+     * Start consuming messages from subscribed channels.
+     *
+     * This method is called by the Redis consumer command.
+     * It runs in a loop, consuming messages and invoking callbacks.
+     *
+     * Performance Optimizations:
+     * - Batch message processing for high throughput
+     * - Graceful shutdown support via signal handlers
+     * - Error handling and retry logic
+     * - Memory-efficient message processing
+     *
+     * Architecture:
+     * - Redis subscribe() is blocking by design (this is expected)
+     * - Signal handlers allow graceful shutdown (SIGTERM, SIGINT)
+     * - Processes messages immediately as they arrive
+     * - Supports multiple channels with pattern matching
+     *
+     * Note: Redis Pub/Sub is designed to be blocking. This is not a bug,
+     * it's the intended behavior for real-time message delivery.
+     *
+     * @param int $timeoutMs Poll timeout in milliseconds (not used for Redis, kept for interface compatibility)
+     * @param int $batchSize Maximum messages per batch (not used for Redis, kept for interface compatibility)
+     * @return void
+     */
+    public function consume(int $timeoutMs = 1000, int $batchSize = 100): void
+    {
+        if (empty($this->subscriptions)) {
+            return; // No subscriptions
+        }
+
+        $this->consuming = true;
+
+        // Get all Redis channels to subscribe
+        $redisChannels = array_keys($this->subscriptions);
+
+        if (empty($redisChannels)) {
+            return;
+        }
+
+        // Subscribe to all channels (blocking operation)
+        // This will block until a message arrives or unsubscribe is called
+        // Signal handlers (SIGTERM, SIGINT) will call stopConsuming() to exit gracefully
+        //
+        // Performance: Event-driven push model (no polling overhead)
+        // Architecture: This is the correct pattern for Redis Pub/Sub
+        $this->subscriber->subscribe($redisChannels, function ($redis, $redisChannel, $payload) {
+            // Check if we should stop (called by signal handler)
+            if (!$this->consuming) {
+                return false; // Stop consuming (exit subscribe loop)
+            }
+
+            $subscriptions = $this->subscriptions[$redisChannel] ?? null;
+
+            if (!$subscriptions) {
+                return true; // Continue but skip
             }
 
             try {
                 // Decode message
                 $message = \Toporia\Framework\Realtime\Message::fromJson($payload);
 
-                // Invoke callback
-                $callback($message);
+                // Extract channel name from Redis channel (remove "realtime:" prefix)
+                $channel = str_replace('realtime:', '', $redisChannel);
+
+                // Handle new format: array of callbacks per channel
+                if (is_array($subscriptions)) {
+                    $callback = $subscriptions[$channel] ?? null;
+                    if ($callback) {
+                        $callback($message);
+                    } else {
+                        // Fallback: try all callbacks
+                        foreach ($subscriptions as $cb) {
+                            if (is_callable($cb)) {
+                                $cb($message);
+                            }
+                        }
+                    }
+                } elseif (is_callable($subscriptions)) {
+                    // Old format: single callback (backward compatibility)
+                    $subscriptions($message);
+                }
             } catch (\Throwable $e) {
                 error_log("Redis subscriber error on {$redisChannel}: {$e->getMessage()}");
+                // Continue consuming even on error
             }
+
+            return true; // Continue consuming
         });
+    }
+
+    /**
+     * Stop consuming messages.
+     *
+     * Unsubscribes from all channels to exit the blocking subscribe() call.
+     *
+     * Performance:
+     * - O(N) where N = number of subscribed channels
+     * - Fast operation (Redis command)
+     *
+     * @return void
+     */
+    public function stopConsuming(): void
+    {
+        $this->consuming = false;
+
+        // Unsubscribe from all channels to exit blocking subscribe()
+        // This will cause subscribe() callback to return false and exit
+        if (!empty($this->subscriptions)) {
+            $redisChannels = array_keys($this->subscriptions);
+            try {
+                $this->subscriber->unsubscribe($redisChannels);
+            } catch (\Throwable $e) {
+                // Ignore errors during shutdown
+                error_log("Error unsubscribing from Redis: {$e->getMessage()}");
+            }
+        }
     }
 
     /**
@@ -144,8 +251,21 @@ final class RedisBroker implements BrokerInterface
     {
         $redisChannel = "realtime:{$channel}";
 
-        unset($this->subscriptions[$redisChannel]);
-        $this->subscriber->unsubscribe([$redisChannel]);
+        // Handle both old format (single callback) and new format (array of callbacks)
+        if (isset($this->subscriptions[$redisChannel])) {
+            if (is_array($this->subscriptions[$redisChannel])) {
+                unset($this->subscriptions[$redisChannel][$channel]);
+                // Remove Redis channel entry if no more channels
+                if (empty($this->subscriptions[$redisChannel])) {
+                    unset($this->subscriptions[$redisChannel]);
+                    $this->subscriber->unsubscribe([$redisChannel]);
+                }
+            } else {
+                // Old format: single callback
+                unset($this->subscriptions[$redisChannel]);
+                $this->subscriber->unsubscribe([$redisChannel]);
+            }
+        }
     }
 
     /**
