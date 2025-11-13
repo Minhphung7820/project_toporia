@@ -89,4 +89,3 @@ final class ExampleBatchConsumer extends AbstractBatchKafkaConsumer implements B
         $this->line("Batch processed successfully");
     }
 }
-

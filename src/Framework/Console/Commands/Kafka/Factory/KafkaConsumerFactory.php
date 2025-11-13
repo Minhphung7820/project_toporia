@@ -27,8 +27,7 @@ final class KafkaConsumerFactory
      */
     public function __construct(
         private readonly RealtimeManagerInterface $realtime
-    ) {
-    }
+    ) {}
 
     /**
      * Get Kafka broker instance.
@@ -45,7 +44,7 @@ final class KafkaConsumerFactory
         if (!$broker) {
             throw new \RuntimeException(
                 "Kafka broker '{$brokerName}' not found. " .
-                "Configure it in config/realtime.php"
+                    "Configure it in config/realtime.php"
             );
         }
 
@@ -105,4 +104,3 @@ final class KafkaConsumerFactory
         return $config['consumer_group'] ?? 'realtime-servers';
     }
 }
-

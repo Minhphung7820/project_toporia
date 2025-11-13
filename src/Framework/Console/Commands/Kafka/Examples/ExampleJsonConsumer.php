@@ -63,4 +63,3 @@ final class ExampleJsonConsumer extends AbstractJsonKafkaConsumer implements Sin
         // Example: Save to database, send notification, etc.
     }
 }
-

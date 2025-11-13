@@ -89,7 +89,7 @@ final class DeadLetterQueueHandler
             // Log retry
             error_log(
                 "Message {$messageId} failed (attempt {$retryCount}/{$this->maxRetries}). " .
-                "Retrying in {$delay}s. Error: {$exception->getMessage()}"
+                    "Retrying in {$delay}s. Error: {$exception->getMessage()}"
             );
 
             // Return true to indicate retry (caller should handle retry logic)
@@ -142,14 +142,14 @@ final class DeadLetterQueueHandler
 
             error_log(
                 "Message {$message->getId()} sent to DLQ: {$dlqTopic}. " .
-                "Error: {$exception->getMessage()}"
+                    "Error: {$exception->getMessage()}"
             );
         } catch (\Throwable $e) {
             // Critical: DLQ publish failed
             error_log(
                 "CRITICAL: Failed to send message to DLQ. " .
-                "Original error: {$exception->getMessage()}. " .
-                "DLQ error: {$e->getMessage()}"
+                    "Original error: {$exception->getMessage()}. " .
+                    "DLQ error: {$e->getMessage()}"
             );
         }
     }
@@ -210,4 +210,3 @@ final class DeadLetterQueueHandler
         $this->retryCounts = [];
     }
 }
-
