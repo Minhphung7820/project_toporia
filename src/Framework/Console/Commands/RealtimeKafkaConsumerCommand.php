@@ -234,7 +234,7 @@ final class RealtimeKafkaConsumerCommand extends Command
 
             // Display progress (every 100 messages)
             if ($this->processed % 100 === 0) {
-                $this->line("Processed: <info>{$this->processed}</info> messages", false);
+                $this->writeln("Processed: <info>{$this->processed}</info> messages");
             }
 
             // Check shouldQuit after processing
@@ -395,4 +395,3 @@ final class RealtimeKafkaConsumerCommand extends Command
         $this->line(str_repeat('=', 60));
     }
 }
-
