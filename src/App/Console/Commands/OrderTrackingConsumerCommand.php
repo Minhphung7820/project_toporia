@@ -202,10 +202,10 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
     {
         // Message is MessageInterface from Kafka
         // Format: Message with event='order.created' and data={order_id, user_id, ...}
-        
+
         if ($message instanceof \Toporia\Framework\Realtime\Contracts\MessageInterface) {
             $data = $message->getData();
-            
+
             // If data is already an array with order info, return it
             if (is_array($data)) {
                 // Add event from message if not in data
