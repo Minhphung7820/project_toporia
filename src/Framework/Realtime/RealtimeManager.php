@@ -279,8 +279,8 @@ final class RealtimeManager implements RealtimeManagerInterface
             // 'postgres' => new Brokers\PostgresBroker($config, $this),
             default => throw new \InvalidArgumentException(
                 "Unsupported broker driver: {$driver}. " .
-                "Supported drivers: redis, kafka. " .
-                "RabbitMQ, NATS, and PostgreSQL are planned for future releases."
+                    "Supported drivers: redis, kafka. " .
+                    "RabbitMQ, NATS, and PostgreSQL are planned for future releases."
             )
         };
     }
