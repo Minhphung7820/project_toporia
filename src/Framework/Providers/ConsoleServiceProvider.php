@@ -73,6 +73,7 @@ final class ConsoleServiceProvider extends ServiceProvider
       // Realtime commands
       \Toporia\Framework\Console\Commands\RealtimeServeCommand::class,
       \Toporia\Framework\Console\Commands\RealtimeKafkaConsumerCommand::class,
+      \Toporia\Framework\Console\Commands\RealtimeRedisConsumerCommand::class,
 
       // Development server
       \Toporia\Framework\Console\Commands\ServeCommand::class,

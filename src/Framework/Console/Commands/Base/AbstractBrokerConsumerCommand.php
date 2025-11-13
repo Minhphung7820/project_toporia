@@ -34,7 +34,7 @@ abstract class AbstractBrokerConsumerCommand extends Command
     public function __construct(
         protected readonly RealtimeManagerInterface $realtime
     ) {
-        parent::__construct();
+        // Note: Command class doesn't have a constructor, so no parent::__construct() call needed
     }
 
     /**
@@ -52,7 +52,7 @@ abstract class AbstractBrokerConsumerCommand extends Command
         if (!$broker) {
             throw new \RuntimeException(
                 "Broker '{$brokerName}' not found. " .
-                "Configure it in config/realtime.php"
+                    "Configure it in config/realtime.php"
             );
         }
 
@@ -186,4 +186,3 @@ abstract class AbstractBrokerConsumerCommand extends Command
         }
     }
 }
-

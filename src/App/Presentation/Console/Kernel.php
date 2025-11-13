@@ -35,6 +35,12 @@ final class Kernel
     public function commands(): array
     {
         return [
+            // Test commands
+            \App\Console\Commands\TestKafkaConsumerCommand::class,
+
+            // Business logic consumers
+            \App\Console\Commands\OrderTrackingConsumerCommand::class,
+
             // Add your custom application commands here...
             // Example:
             // \App\Console\Commands\SendNewsletterCommand::class,
