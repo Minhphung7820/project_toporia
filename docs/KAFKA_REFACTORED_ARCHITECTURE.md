@@ -31,9 +31,11 @@ The Kafka consumer system has been refactored following Clean Architecture princ
                            ↓
 ┌─────────────────────────────────────────────────────────┐
 │              Concrete Implementations                   │
-│  RealtimeKafkaConsumerCommand                           │
-│  ExampleJsonConsumer                                    │
-│  ExampleBatchConsumer                                   │
+│  RealtimeKafkaConsumerCommand (Framework Core)         │
+│                                                          │
+│  Examples (in examples/ folder, not core):             │
+│  - ExampleJsonConsumer                                  │
+│  - ExampleBatchConsumer                                 │
 └─────────────────────────────────────────────────────────┘
 ```
 
