@@ -49,7 +49,6 @@ abstract class AbstractKafkaConsumer extends Command
     public function __construct(
         protected readonly RealtimeManagerInterface $realtime
     ) {
-        parent::__construct();
         $this->startTime = microtime(true);
     }
 
