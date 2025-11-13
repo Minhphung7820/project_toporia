@@ -165,18 +165,25 @@ abstract class AbstractKafkaConsumer extends Command
      */
     protected function displayHeader(string $consumerType, array $options = []): void
     {
+        // Prevent multiple calls (static flag)
+        static $displayed = false;
+        if ($displayed) {
+            return;
+        }
+        $displayed = true;
+
         $this->newLine();
         $this->info("Kafka Consumer: {$consumerType}");
-        $this->line(str_repeat('=', 60));
-        $this->line("Topic: <info>{$this->getTopic()}</info>");
-        $this->line("Group ID: <info>{$this->getGroupId()}</info>");
-        $this->line("Offset: <info>{$this->getOffset()}</info>");
+        $this->line('=', 60); // Line separator
+        $this->writeln("Topic: <info>{$this->getTopic()}</info>");
+        $this->writeln("Group ID: <info>{$this->getGroupId()}</info>");
+        $this->writeln("Offset: <info>{$this->getOffset()}</info>");
 
         foreach ($options as $key => $value) {
-            $this->line(ucfirst($key) . ": <info>{$value}</info>");
+            $this->writeln(ucfirst($key) . ": <info>{$value}</info>");
         }
 
-        $this->line(str_repeat('-', 60));
+        $this->line('-', 60); // Line separator
         $this->info('Consumer started. Press Ctrl+C to stop.');
         $this->newLine();
     }

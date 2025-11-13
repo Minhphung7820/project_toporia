@@ -220,11 +220,16 @@ $router->get('/api/orders/test', function (Request $request, Response $response)
     return $response->json([
         'message' => 'Order Tracking Test Endpoints',
         'endpoints' => [
+            'GET /api/orders/produce' => 'Quick test - publish order.created event (query params)',
             'POST /api/orders' => 'Create order and publish order.created event',
             'POST /api/orders/{orderId}/ship' => 'Ship order and publish order.shipped event',
             'POST /api/orders/{orderId}/deliver' => 'Deliver order and publish order.delivered event',
         ],
         'example' => [
+            'quick_test' => [
+                'method' => 'GET',
+                'url' => '/api/orders/produce?event=order.created&order_id=123&user_id=456',
+            ],
             'create_order' => [
                 'method' => 'POST',
                 'url' => '/api/orders',
@@ -247,4 +252,77 @@ $router->get('/api/orders/test', function (Request $request, Response $response)
         ],
         'consumer' => 'Run: php console order:tracking:consume',
     ]);
+});
+
+// Quick test route - GET để dễ test producer
+$router->get('/api/orders/produce', function (Request $request, Response $response) {
+    $realtime = realtime();
+
+    // Get parameters from query string
+    $event = $request->query('event', 'order.created');
+    $orderId = $request->query('order_id', uniqid('order_', true));
+    $userId = $request->query('user_id', rand(1, 1000));
+    $total = $request->query('total', rand(100, 10000));
+
+    // Build order data based on event type
+    $orderData = [
+        'order_id' => $orderId,
+        'user_id' => (int) $userId,
+        'total' => (float) $total,
+    ];
+
+    // Add event-specific data
+    switch ($event) {
+        case 'order.created':
+            $orderData['status'] = 'created';
+            $orderData['created_at'] = date('Y-m-d H:i:s');
+            break;
+        case 'order.shipped':
+            $orderData['tracking_number'] = $request->query('tracking_number', 'TRACK-' . strtoupper(substr(uniqid(), -10)));
+            $orderData['carrier'] = $request->query('carrier', 'DHL');
+            $orderData['shipped_at'] = date('Y-m-d H:i:s');
+            break;
+        case 'order.delivered':
+            $orderData['delivered_at'] = date('Y-m-d H:i:s');
+            break;
+        case 'order.cancelled':
+            $orderData['reason'] = $request->query('reason', 'Customer request');
+            $orderData['cancelled_at'] = date('Y-m-d H:i:s');
+            break;
+    }
+
+    // Publish to Kafka topic 'orders.events' (business logic topic)
+    $kafkaBroker = $realtime->broker('kafka');
+
+    if (!$kafkaBroker) {
+        return $response->json([
+            'success' => false,
+            'error' => 'Kafka broker not available. Make sure Kafka is configured in config/realtime.php',
+        ], 500);
+    }
+
+    try {
+
+        $kafkaBroker->publish('orders.events', \Toporia\Framework\Realtime\Message::event(
+            'orders.events',  // Topic name (business logic, not realtime channel)
+            $event,            // Event type (order.created, order.shipped, etc.)
+            $orderData         // Event data
+        ));
+
+        return $response->json([
+            'success' => true,
+            'message' => "Order event '{$event}' published to Kafka",
+            'topic' => 'orders.events',
+            'event' => $event,
+            'data' => $orderData,
+            'consumer' => 'Run: php console order:tracking:consume',
+            'note' => 'Check consumer terminal to see the message being processed',
+        ]);
+    } catch (\Throwable $e) {
+        return $response->json([
+            'success' => false,
+            'error' => 'Failed to publish to Kafka: ' . $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ], 500);
+    }
 });

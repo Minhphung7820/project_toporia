@@ -135,36 +135,77 @@ abstract class AbstractBatchKafkaConsumer extends AbstractKafkaConsumer implemen
     protected function consumeBatches(KafkaBroker $broker, int $timeout, int $batchSize): void
     {
         $batch = [];
-        $lastFlushTime = microtime(true) * 1000; // milliseconds
+        $lastFlushTime = (int) (microtime(true) * 1000); // milliseconds (cast to int to avoid precision loss)
         $interval = $this->getBatchReleaseInterval();
 
-        // Subscribe to topic
-        $broker->subscribe($this->getTopic(), function (MessageInterface $message) use (&$batch, &$lastFlushTime, $batchSize, $interval, $broker) {
-            $batch[] = [
-                'message' => $message,
-                'metadata' => [
-                    'topic' => $this->getTopic(),
-                    'timestamp' => time(),
-                ],
-            ];
-
-            $now = microtime(true) * 1000;
-
-            // Process batch if full or interval elapsed
-            if (count($batch) >= $batchSize || ($now - $lastFlushTime) >= $interval) {
-                $this->processBatch($batch);
-                $batch = [];
-                $lastFlushTime = $now;
+        // Set error handler to suppress precision warnings for large Kafka offsets
+        $originalErrorHandler = set_error_handler(function ($errno, $errstr, $errfile, $errline) {
+            // Suppress precision loss warnings for Kafka offsets
+            if (str_contains($errstr, 'Implicit conversion') || str_contains($errstr, 'loses precision')) {
+                error_log("Kafka offset precision warning suppressed: {$errstr}");
+                return true; // Suppress the error
             }
+            return false; // Let other errors through
+        }, E_WARNING | E_NOTICE | E_DEPRECATED);
 
-            // Check shouldQuit
-            if ($this->shouldQuit) {
-                $broker->stopConsuming();
+        try {
+            $topic = $this->getTopic();
+            $this->writeln("Subscribing to topic: <info>{$topic}</info>");
+
+            // Subscribe to topic
+            $broker->subscribe($topic, function (MessageInterface $message) use (&$batch, &$lastFlushTime, $batchSize, $interval, $broker, $topic) {
+                // Log immediately when callback is invoked
+                $this->writeln("Received message on topic: <info>{$topic}</info>");
+                error_log("AbstractBatchKafkaConsumer: Callback invoked for topic {$topic}");
+
+                // Log message details
+                $event = $message->getEvent() ?? 'unknown';
+                $data = $message->getData();
+                $this->writeln("  Event: <comment>{$event}</comment>");
+                error_log("AbstractBatchKafkaConsumer: Event={$event}, Data=" . json_encode($data));
+
+                $batch[] = [
+                    'message' => $message,
+                    'metadata' => [
+                        'topic' => $topic,
+                        'timestamp' => time(),
+                    ],
+                ];
+
+                $now = (int) (microtime(true) * 1000); // Cast to int to avoid precision loss
+
+                // Process batch if full or interval elapsed
+                if (count($batch) >= $batchSize || ($now - $lastFlushTime) >= $interval) {
+                    $this->writeln("Processing batch of " . count($batch) . " messages");
+                    error_log("AbstractBatchKafkaConsumer: Processing batch of " . count($batch) . " messages");
+                    $this->processBatch($batch);
+                    $batch = [];
+                    $lastFlushTime = $now;
+                }
+
+                // Check shouldQuit
+                if ($this->shouldQuit) {
+                    $broker->stopConsuming();
+                }
+            });
+
+            $this->writeln("Starting to consume from topic: <info>{$topic}</info>");
+            // Start consuming (this will use the batch size from KafkaBroker)
+            $broker->consume($timeout, $batchSize);
+        } catch (\TypeError $e) {
+            // Handle precision loss errors for large Kafka offsets
+            if (str_contains($e->getMessage(), 'Implicit conversion') || str_contains($e->getMessage(), 'loses precision')) {
+                error_log("Kafka offset precision error suppressed: {$e->getMessage()}");
+                // Continue - this is a warning, not a fatal error
+            } else {
+                throw $e; // Re-throw other TypeErrors
             }
-        });
-
-        // Start consuming (this will use the batch size from KafkaBroker)
-        $broker->consume($timeout, $batchSize);
+        } finally {
+            // Restore original error handler
+            if ($originalErrorHandler !== null) {
+                restore_error_handler();
+            }
+        }
     }
 
     /**

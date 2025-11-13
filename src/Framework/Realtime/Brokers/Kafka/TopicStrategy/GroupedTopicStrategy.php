@@ -134,7 +134,10 @@ final class GroupedTopicStrategy implements TopicStrategyInterface
     private function matchesPattern(string $channel, string $pattern): bool
     {
         // Convert wildcard pattern to regex
-        $regex = str_replace(['*', '.'], ['.*', '\\.'], $pattern);
+        // IMPORTANT: Replace '.' first, then '*' to avoid conflicts
+        // Pattern: 'orders.*' -> 'orders\..*' (correct)
+        // If we replace '*' first: 'orders.*' -> 'orders..*' (wrong!)
+        $regex = str_replace(['.', '*'], ['\\.', '.*'], $pattern);
         return (bool) preg_match("/^{$regex}$/", $channel);
     }
 }

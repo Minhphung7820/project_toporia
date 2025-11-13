@@ -139,7 +139,11 @@ return [
             'topic_strategy' => env('KAFKA_TOPIC_STRATEGY', 'grouped'),
 
             // Topic Mapping (for grouped strategy)
-            'topic_mapping' => config('kafka.topic_mapping', []),
+            // Load directly from kafka.php config file
+            'topic_mapping' => (function () {
+                $kafkaConfig = @include __DIR__ . '/kafka.php';
+                return $kafkaConfig['topic_mapping'] ?? [];
+            })(),
             'default_topic' => env('KAFKA_DEFAULT_TOPIC', 'realtime'),
             'default_partitions' => (int) env('KAFKA_DEFAULT_PARTITIONS', 10),
 

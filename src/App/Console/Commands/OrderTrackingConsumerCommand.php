@@ -8,6 +8,7 @@ use Toporia\Framework\Console\Commands\Kafka\Base\AbstractBatchKafkaConsumer;
 use Toporia\Framework\Console\Commands\Kafka\Contracts\BatchingMessagesHandlerInterface;
 use Toporia\Framework\Console\Commands\Kafka\DeadLetterQueue\DeadLetterQueueHandler;
 use Toporia\Framework\Realtime\Contracts\RealtimeManagerInterface;
+use Toporia\Framework\Support\Accessors\Log;
 use Toporia\Framework\Support\Collection;
 
 /**
@@ -109,22 +110,53 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
                 );
             }
 
-            // Display header (from parent class)
+            // Override parent's displayHeader with custom one
+            // Parent class will call displayHeader, but we override it here
+            $broker = $this->getBroker();
+            $topic = $this->getTopic();
+            $batchSize = $this->getBatchSizeLimit();
+            $interval = $this->getBatchReleaseInterval();
+
+            // Validate
+            if (empty($topic)) {
+                $this->error('Topic is required. Override getTopic() method.');
+                return 1;
+            }
+
+            if ($batchSize <= 0) {
+                $this->error('Batch size must be greater than 0.');
+                return 1;
+            }
+
+            // Display custom header (only once)
             $this->displayHeader('Order Tracking Consumer', [
-                'topic' => $this->getTopic(),
+                'broker' => $this->getBrokerName(),
+                'topic' => $topic,
                 'group_id' => $this->getGroupId(),
-                'batch_size' => $this->getBatchSizeLimit(),
+                'batch_size' => $batchSize,
+                'interval' => $interval . 'ms',
                 'dlq' => $this->dlqHandler ? 'enabled' : 'disabled',
             ]);
 
-            // Setup graceful shutdown (from parent class)
-            $broker = $this->getBroker();
+            // Setup graceful shutdown
             $this->setupSignalHandlers(function () use ($broker) {
                 $broker->stopConsuming();
             });
 
-            // Start consuming (handled by parent class)
-            return parent::handle();
+            // Start batch consuming
+            $timeout = (int) $this->option('timeout', 1000);
+            $maxMessages = (int) $this->option('max-messages', 0);
+
+            if ($maxMessages > 0) {
+                $this->consumeBatchesWithLimit($broker, $timeout, $batchSize, $maxMessages);
+            } else {
+                $this->consumeBatches($broker, $timeout, $batchSize);
+            }
+
+            // Display summary
+            $this->displaySummary();
+
+            return 0;
         } catch (\Throwable $e) {
             $this->error("Consumer crashed: {$e->getMessage()}");
 
@@ -144,7 +176,9 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
      */
     public function handleMessages(Collection $messages): void
     {
-        $this->line("Processing batch of " . $messages->count() . " order events");
+        $count = $messages->count();
+        $this->writeln("OrderTrackingConsumer: Processing batch of <info>{$count}</info> order events");
+        error_log("OrderTrackingConsumer: Processing batch of {$count} messages");
 
         foreach ($messages as $item) {
             try {
@@ -152,11 +186,17 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
                 $metadata = $item['metadata'] ?? [];
 
                 if (!$message) {
+                    $this->warn("  ⚠ Skipping message: message is null");
+                    error_log("OrderTrackingConsumer: Skipping message - message is null");
                     continue;
                 }
 
                 // Extract order data from message
                 $orderData = $this->extractOrderData($message);
+
+                // Log extracted data
+                $this->writeln("  Processing order: <info>" . ($orderData['order_id'] ?? 'unknown') . "</info>");
+                error_log("OrderTrackingConsumer: Extracted order data: " . json_encode($orderData));
 
                 // Process order event based on event type
                 $this->processOrderEvent($orderData, $metadata);
@@ -273,7 +313,7 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
         // - Send confirmation email
         // - Update inventory
         // - Generate analytics
-
+        Log::info("Order created: {$orderId}");
         $this->line("  ✓ Order created: {$orderId}");
 
         // TODO: Implement your business logic

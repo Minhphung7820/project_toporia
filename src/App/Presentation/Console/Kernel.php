@@ -36,8 +36,6 @@ final class Kernel
     {
         return [
             // Test commands
-            \App\Console\Commands\TestKafkaConsumerCommand::class,
-
             // Business logic consumers
             \App\Console\Commands\OrderTrackingConsumerCommand::class,
 
