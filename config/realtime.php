@@ -42,6 +42,7 @@ return [
     |
     | null: No broker (single server only)
     | redis: Redis Pub/Sub (simple, fast)
+    | kafka: Apache Kafka (high-throughput, persistent)
     | rabbitmq: RabbitMQ AMQP (durable, routing)
     | nats: NATS messaging (ultra-fast, clustering)
     | postgres: PostgreSQL LISTEN/NOTIFY (DB-based)
@@ -126,6 +127,38 @@ return [
         'postgres' => [
             'driver' => 'postgres',
             // Uses existing database connection
+        ],
+
+        'kafka' => [
+            'driver' => 'kafka',
+            'brokers' => explode(',', env('KAFKA_BROKERS', 'localhost:9092')),
+            'topic_prefix' => env('KAFKA_TOPIC_PREFIX', 'realtime'),
+            'consumer_group' => env('KAFKA_CONSUMER_GROUP', 'realtime-servers'),
+
+            // Performance optimizations
+            'buffer_size' => (int) env('KAFKA_BUFFER_SIZE', 100), // Messages per batch
+            'flush_interval_ms' => (int) env('KAFKA_FLUSH_INTERVAL_MS', 100), // Flush every 100ms
+
+            // Producer configuration (rdkafka format)
+            // Optimized defaults for high performance
+            'producer_config' => [
+                'compression.type' => env('KAFKA_COMPRESSION', 'snappy'), // snappy, gzip, lz4
+                'batch.size' => env('KAFKA_BATCH_SIZE', '16384'), // 16KB
+                'linger.ms' => env('KAFKA_LINGER_MS', '10'), // Wait 10ms for batch
+                'acks' => env('KAFKA_ACKS', '1'), // 1 = leader ack (balance between speed and durability)
+                'max.in.flight.requests.per.connection' => env('KAFKA_MAX_IN_FLIGHT', '5'), // Parallel requests
+            ],
+
+            // Consumer configuration (rdkafka format)
+            'consumer_config' => [
+                'enable.auto.commit' => 'true',
+                'auto.offset.reset' => 'earliest',
+                'session.timeout.ms' => '30000',
+                'max.poll.interval.ms' => '300000',
+                'fetch.min.bytes' => env('KAFKA_FETCH_MIN_BYTES', '1024'), // Min bytes per fetch
+                'fetch.max.wait.ms' => env('KAFKA_FETCH_MAX_WAIT_MS', '500'), // Max wait time
+                'max.partition.fetch.bytes' => env('KAFKA_MAX_PARTITION_FETCH_BYTES', '1048576'), // 1MB per partition
+            ],
         ],
     ],
 

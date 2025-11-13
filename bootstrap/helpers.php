@@ -317,6 +317,23 @@ if (!function_exists('notify')) {
     }
 }
 
+if (!function_exists('realtime')) {
+    /**
+     * Get the realtime manager instance.
+     *
+     * Usage:
+     * - realtime() - Get RealtimeManager instance
+     * - realtime()->broadcast(...) - Broadcast message
+     * - realtime()->send(...) - Send to connection
+     *
+     * @return \Toporia\Framework\Realtime\Contracts\RealtimeManagerInterface
+     */
+    function realtime(): \Toporia\Framework\Realtime\Contracts\RealtimeManagerInterface
+    {
+        return app('realtime');
+    }
+}
+
 if (!function_exists('broadcast')) {
     /**
      * Broadcast realtime event to a channel.
