@@ -60,6 +60,85 @@ $router->get('/products/{id}', [ProductsController::class, 'show']);
 // API routes (ADR pattern)
 $router->post('/v2/products', [CreateProductAction::class, '__invoke']);
 
+// Elasticsearch Search API
+$router->get('/api/products/search', function (Request $request, Response $response) {
+    $search = container('search');
+    $query = $request->query('q', '');
+    $page = (int) $request->query('page', 1);
+    $perPage = (int) $request->query('per_page', 15);
+    $minPrice = $request->query('min_price');
+    $maxPrice = $request->query('max_price');
+    $status = $request->query('status');
+
+    // Build search query
+    $searchQuery = $search->query();
+
+    // Full-text search on title and description
+    if (!empty($query)) {
+        $searchQuery->match('title', $query);
+        $searchQuery->match('description', $query);
+    }
+
+    // Price range filter
+    if ($minPrice !== null || $maxPrice !== null) {
+        $range = [];
+        if ($minPrice !== null) {
+            $range['gte'] = (float) $minPrice;
+        }
+        if ($maxPrice !== null) {
+            $range['lte'] = (float) $maxPrice;
+        }
+        $searchQuery->range('price', $range);
+    }
+
+    // Status filter
+    if ($status !== null) {
+        $searchQuery->term('status', $status);
+    }
+
+    // Default: only show active products
+    if ($status === null) {
+        $searchQuery->term('status', 'active');
+    }
+
+    // Sort by relevance (default) or price
+    $sortBy = $request->query('sort', 'relevance');
+    if ($sortBy === 'price_asc') {
+        $searchQuery->sort('price', 'asc');
+    } elseif ($sortBy === 'price_desc') {
+        $searchQuery->sort('price', 'desc');
+    }
+
+    // Pagination
+    $searchQuery->paginate($page, $perPage);
+
+    // Execute search
+    $index = \App\Domain\Product\ProductModel::searchIndexName();
+    $results = $search->search($index, $searchQuery->toArray());
+
+    // Format response
+    $hits = $results['hits']['hits'] ?? [];
+    $total = $results['hits']['total']['value'] ?? 0;
+
+    return $response->json([
+        'success' => true,
+        'data' => array_map(fn($hit) => $hit['_source'], $hits),
+        'meta' => [
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $perPage,
+            'last_page' => (int) ceil($total / $perPage),
+        ],
+        'query' => [
+            'q' => $query,
+            'min_price' => $minPrice,
+            'max_price' => $maxPrice,
+            'status' => $status,
+            'sort' => $sortBy,
+        ],
+    ]);
+});
+
 // File Upload routes
 $router->get('/upload', [FileUploadController::class, 'showForm']);
 $router->post('/upload/local', [FileUploadController::class, 'uploadLocal']);

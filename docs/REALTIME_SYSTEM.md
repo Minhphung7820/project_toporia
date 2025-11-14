@@ -54,7 +54,7 @@ Realtime/
 │   └── LongPollingTransport.php         # ✅ HTTP long-polling - Legacy fallback
 └── Brokers/                           # Message broker drivers
     ├── RedisBroker.php                  # ✅ Redis Pub/Sub
-    ├── RabbitMqBroker.php               # 📋 TODO: RabbitMQ AMQP
+    ├── RabbitMqBroker.php               # ✅ RabbitMQ AMQP
     ├── NatsBroker.php                   # 📋 TODO: NATS messaging
     └── PostgresBroker.php               # 📋 TODO: PostgreSQL LISTEN/NOTIFY
 ```

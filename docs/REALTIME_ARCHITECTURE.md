@@ -40,7 +40,7 @@ Toporia Framework's Realtime system provides multi-transport, multi-broker realt
 **Types:**
 - `redis`: Redis Pub/Sub (simple, fast, ephemeral)
 - `kafka`: Apache Kafka (high-throughput, persistent, replay)
-- `rabbitmq`: RabbitMQ AMQP (durable, routing) - planned
+- `rabbitmq`: RabbitMQ AMQP (durable, routing)
 - `nats`: NATS messaging (ultra-fast, clustering) - planned
 - `postgres`: PostgreSQL LISTEN/NOTIFY (DB-based) - planned
 
@@ -203,7 +203,7 @@ php console realtime:kafka:consume --channels=user.1,public.news
 
 - **Simple Setup:** Redis Pub/Sub
 - **High Throughput:** Kafka
-- **Durability:** RabbitMQ (when implemented)
+- **Durability:** RabbitMQ
 - **Ultra-Fast:** NATS (when implemented)
 
 ### 3. Channel Naming

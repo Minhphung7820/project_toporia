@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Domain\Product;
 
 use Toporia\Framework\Database\ORM\Model;
+use Toporia\Framework\Search\Searchable;
+use Toporia\Framework\Search\Contracts\SearchableModelInterface;
 
 /**
  * Product ORM Model.
@@ -26,8 +28,10 @@ use Toporia\Framework\Database\ORM\Model;
  * @property string $created_at
  * @property string $updated_at
  */
-class ProductModel extends Model
+class ProductModel extends Model implements SearchableModelInterface
 {
+    use Searchable;
+
     /**
      * {@inheritdoc}
      */
@@ -117,6 +121,9 @@ class ProductModel extends Model
     {
         // Example: Dispatch event, clear cache, etc.
         // event(new ProductCreated($this));
+
+        // Sync with Elasticsearch (Searchable trait)
+        $this->pushToSearch();
     }
 
     /**
@@ -130,6 +137,17 @@ class ProductModel extends Model
         if (isset($this->price) && $this->price < 0) {
             throw new \InvalidArgumentException('Price cannot be negative');
         }
+    }
+
+    /**
+     * Hook: Called after updated.
+     *
+     * @return void
+     */
+    protected function updated(): void
+    {
+        // Sync with Elasticsearch (Searchable trait)
+        $this->pushToSearch();
     }
 
     /**
@@ -255,5 +273,44 @@ class ProductModel extends Model
         } else {
             return 'Well Stocked';
         }
+    }
+
+    // =========================================================================
+    // ELASTICSEARCH INTEGRATION
+    // =========================================================================
+
+    /**
+     * {@inheritdoc}
+     */
+    public static function searchIndexName(): string
+    {
+        return config('search.indices.products.name', 'products');
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function toSearchDocument(): array
+    {
+        return [
+            'id' => (string) $this->id,
+            'title' => $this->title ?? '',
+            'description' => $this->description ?? '',
+            'sku' => $this->sku ?? '',
+            'price' => $this->price ?? 0.0,
+            'stock' => $this->stock ?? 0,
+            'is_active' => $this->is_active ?? false,
+            'status' => $this->is_active ? 'active' : 'inactive',
+            'created_at' => $this->created_at ?? date('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at ?? date('Y-m-d H:i:s'),
+        ];
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getSearchDocumentId(): string|int
+    {
+        return $this->id;
     }
 }

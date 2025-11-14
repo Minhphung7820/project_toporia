@@ -9,6 +9,8 @@ use Toporia\Framework\Database\Query\QueryBuilder;
 use Toporia\Framework\Database\ORM\ModelCollection;
 use Toporia\Framework\Database\Query\RowCollection;
 use Toporia\Framework\Database\ORM\Relations;
+use Toporia\Framework\Observer\Traits\Observable;
+use Toporia\Framework\Observer\Contracts\ObservableInterface;
 
 /**
  * Base Active Record model.
@@ -27,8 +29,9 @@ use Toporia\Framework\Database\ORM\Relations;
  *
  * @property mixed $id Primary key (dynamic attribute)
  */
-abstract class Model implements ModelInterface
+abstract class Model implements ModelInterface, ObservableInterface
 {
+    use Observable;
     /**
      * Database table name (override in child class).
      *
@@ -864,14 +867,34 @@ abstract class Model implements ModelInterface
      * Dispatch a lifecycle hook if the corresponding method is implemented.
      *
      * Available hooks: creating, created, updating, updated, deleting, deleted.
+     *
+     * Also notifies observers about the event.
      */
     private function fireEvent(string $event): void
     {
         $method = $event;
 
+        // Call model hook method if exists
         if (method_exists($this, $method)) {
             $this->{$method}();
         }
+
+        // Prepare event data with dirty fields information
+        $eventData = [
+            'model' => $this,
+            'attributes' => $this->attributes,
+            'original' => $this->original,
+            'exists' => $this->exists,
+        ];
+
+        // Add dirty fields information for update events
+        if (in_array($event, ['updating', 'updated', 'saving', 'saved'])) {
+            $eventData['dirty'] = $this->getDirty();
+            $eventData['is_dirty'] = !empty($eventData['dirty']);
+        }
+
+        // Notify observers about the event
+        $this->notify($event, $eventData);
     }
 
     /**

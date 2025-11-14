@@ -7,7 +7,8 @@
     "phpmailer/phpmailer": "^7.0",
     "aws/aws-sdk-php": "^3.359",
     "php-amqplib/php-amqplib": "^3.0",
-    "nmred/kafka-php": "^0.2.0"
+    "nmred/kafka-php": "^0.2.0",
+    "elasticsearch/elasticsearch": "^8.13"
   },
   "require-dev": {
     "jetbrains/phpstorm-stubs": "*"

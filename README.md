@@ -123,6 +123,18 @@ Inspired by Laravel's elegance and Symfony's architecture, Toporia offers a **ze
 - Failed job handling
 - Queue worker with graceful shutdown
 
+#### **Realtime & Broadcasting**
+- Multi-transport delivery (WebSocket, SSE, Long-polling, Socket.IO)
+- Broker drivers: Redis (fast fan-out), RabbitMQ (durable routing), Kafka (high-throughput replay)
+- Auto topic/queue binding via clean Service Provider configuration
+- Enterprise-grade performance with batching, QoS, and graceful shutdown consumers
+
+#### **Search & Indexing**
+- First-class Elasticsearch module with reusable `SearchManager`
+- Bulk indexing, queue-aware sync, and ORM trait for auto document updates
+- Fluent query builder + console reindex command (`php console search:reindex`)
+- Optimized client (connection pooling, retries, deferred flush) for high-throughput indexing
+
 #### **Task Scheduling**
 - Cron-like task scheduler
 - Frequency helpers (everyMinute, hourly, daily, weekly, monthly)

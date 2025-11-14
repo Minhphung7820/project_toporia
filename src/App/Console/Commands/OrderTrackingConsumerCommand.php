@@ -178,7 +178,9 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
     {
         $count = $messages->count();
         $this->newLine();
-        $this->writeln("<fg=cyan;options=bold>OrderTrackingConsumer</> · Processing batch of <info>{$count}</info> event(s)");
+        $this->line(str_repeat('-', 70));
+        $this->line(sprintf('[OrderTracking] Processing batch of %d event(s)', $count));
+        $this->line(str_repeat('-', 70));
 
         foreach ($messages as $item) {
             try {
@@ -227,8 +229,8 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
             }
         }
 
-        $this->writeln(sprintf(
-            "<fg=green;options=bold>✔ Batch</> processed: <info>%d</info> orders · <fg=yellow>%d</fg=yellow> errors",
+        $this->line(sprintf(
+            '[OrderTracking] Batch processed: %d orders, %d errors',
             $this->processed,
             $this->errors
         ));
@@ -316,9 +318,9 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
         // - Update inventory
         // - Generate analytics
         Log::info("Order created: {$orderId}");
-        $this->writeln(
+        $this->line(
             sprintf(
-                "    <fg=green;options=bold>✓ Created</> <comment>#%s</comment> · user <info>%s</info> · total <info>%s</info>",
+                "    ✓ Created | #%s | user=%s | total=%s",
                 $orderId,
                 $orderData['user_id'] ?? 'N/A',
                 $this->formatCurrency($orderData['total'] ?? null)
@@ -345,9 +347,9 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
         $orderId = $orderData['order_id'];
         $changes = $orderData['changes'] ?? [];
 
-        $this->writeln(
+        $this->line(
             sprintf(
-                "    <fg=blue;options=bold>✓ Updated</> <comment>#%s</comment> · status <info>%s</info>",
+                "    ✓ Updated | #%s | status=%s",
                 $orderId,
                 $orderData['status'] ?? 'N/A'
             )
@@ -369,9 +371,9 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
         $orderId = $orderData['order_id'];
         $trackingNumber = $orderData['tracking_number'] ?? null;
 
-        $this->writeln(
+        $this->line(
             sprintf(
-                "    <fg=magenta;options=bold>✓ Shipped</> <comment>#%s</comment> · tracking <info>%s</info>",
+                "    ✓ Shipped | #%s | tracking=%s",
                 $orderId,
                 $trackingNumber ?? 'pending'
             )
@@ -396,12 +398,7 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
     {
         $orderId = $orderData['order_id'];
 
-        $this->writeln(
-            sprintf(
-                "    <fg=green;options=bold>✓ Delivered</> <comment>#%s</comment>",
-                $orderId
-            )
-        );
+        $this->line(sprintf("    ✓ Delivered | #%s", $orderId));
 
         // TODO: Implement your business logic
         // Example:
@@ -423,9 +420,9 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
         $orderId = $orderData['order_id'];
         $reason = $orderData['reason'] ?? 'unknown';
 
-        $this->writeln(
+        $this->line(
             sprintf(
-                "    <fg=red;options=bold>✗ Cancelled</> <comment>#%s</comment> · reason <info>%s</info>",
+                "    ✗ Cancelled | #%s | reason=%s",
                 $orderId,
                 $reason
             )
@@ -468,8 +465,8 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
         $userId = $orderData['user_id'] ?? 'N/A';
         $total = $this->formatCurrency($orderData['total'] ?? null);
 
-        $this->writeln(sprintf(
-            "<fg=gray>[%s]</> <fg=cyan;options=bold>Order</> <comment>#%s</comment> · event <fg=yellow>%s</fg=yellow> · user <info>%s</info> · total <info>%s</info>",
+        $this->line(sprintf(
+            "[%s] Order #%s | event=%s | user=%s | total=%s",
             date('H:i:s'),
             $orderId,
             $event,

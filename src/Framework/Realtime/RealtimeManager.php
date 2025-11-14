@@ -379,14 +379,10 @@ final class RealtimeManager implements RealtimeManagerInterface
         return match ($driver) {
             'redis' => new Brokers\RedisBroker($config, $this),
             'kafka' => new Brokers\KafkaBroker($config, $this),
-            // TODO: Implement these brokers
-            // 'rabbitmq' => new Brokers\RabbitMqBroker($config, $this),
-            // 'nats' => new Brokers\NatsBroker($config, $this),
-            // 'postgres' => new Brokers\PostgresBroker($config, $this),
+            'rabbitmq' => new Brokers\RabbitMqBroker($config, $this),
             default => throw new \InvalidArgumentException(
                 "Unsupported broker driver: {$driver}. " .
-                    "Supported drivers: redis, kafka. " .
-                    "RabbitMQ, NATS, and PostgreSQL are planned for future releases."
+                    "Supported drivers: redis, kafka, rabbitmq."
             )
         };
     }

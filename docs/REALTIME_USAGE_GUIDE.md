@@ -247,7 +247,7 @@ apt-get install redis-server
 redis-cli ping # Should return PONG
 ```
 
-#### 2. RabbitMQ Broker (Enterprise - TODO)
+#### 2. RabbitMQ Broker (Enterprise)
 
 ```php
 'default_broker' => 'rabbitmq',
@@ -255,19 +255,42 @@ redis-cli ping # Should return PONG
 'brokers' => [
     'rabbitmq' => [
         'driver' => 'rabbitmq',
-        'host' => 'localhost',
-        'port' => 5672,
-        'user' => 'guest',
-        'password' => 'guest',
-        'vhost' => '/',
+        'host' => env('RABBITMQ_HOST', '127.0.0.1'),
+        'port' => env('RABBITMQ_PORT', 5672),
+        'user' => env('RABBITMQ_USER', 'guest'),
+        'password' => env('RABBITMQ_PASSWORD', 'guest'),
+        'vhost' => env('RABBITMQ_VHOST', '/'),
+        'exchange' => env('RABBITMQ_EXCHANGE', 'realtime'),
+        'exchange_type' => env('RABBITMQ_EXCHANGE_TYPE', 'topic'),
+        'prefetch_count' => env('RABBITMQ_PREFETCH_COUNT', 50),
+        'queue_prefix' => env('RABBITMQ_QUEUE_PREFIX', 'realtime'),
+        'queue_durable' => env('RABBITMQ_QUEUE_DURABLE', false),
+        'queue_exclusive' => env('RABBITMQ_QUEUE_EXCLUSIVE', true),
+        'queue_auto_delete' => env('RABBITMQ_QUEUE_AUTO_DELETE', true),
+        'persistent_messages' => env('RABBITMQ_PERSISTENT_MESSAGES', true),
     ],
 ],
+```
+
+**Architecture**:
+```
+Server A ─┐
+          ├─> Exchange "realtime" (topic) → auto queues per node → local clients
+Server B ─┘
+```
+
+**Setup**:
+```bash
+docker run -d --name rabbitmq \
+  -p 5672:5672 -p 15672:15672 \
+  rabbitmq:3-management
+# Open http://localhost:15672 (guest/guest) to monitor queues/exchanges
 ```
 
 **Performance**:
 - Latency: ~1ms
 - Throughput: 50k msg/sec
-- Features: Durable, routing, persistence
+- Features: Durable routing, QoS, message persistence
 
 #### 3. NATS Broker (Ultra-Fast - TODO)
 
