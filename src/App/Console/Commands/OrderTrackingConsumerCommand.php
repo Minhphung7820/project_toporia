@@ -177,8 +177,8 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
     public function handleMessages(Collection $messages): void
     {
         $count = $messages->count();
-        $this->writeln("OrderTrackingConsumer: Processing batch of <info>{$count}</info> order events");
-        error_log("OrderTrackingConsumer: Processing batch of {$count} messages");
+        $this->newLine();
+        $this->writeln("<fg=cyan;options=bold>OrderTrackingConsumer</> · Processing batch of <info>{$count}</info> event(s)");
 
         foreach ($messages as $item) {
             try {
@@ -194,9 +194,7 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
                 // Extract order data from message
                 $orderData = $this->extractOrderData($message);
 
-                // Log extracted data
-                $this->writeln("  Processing order: <info>" . ($orderData['order_id'] ?? 'unknown') . "</info>");
-                error_log("OrderTrackingConsumer: Extracted order data: " . json_encode($orderData));
+                $this->renderOrderConsoleSummary($orderData);
 
                 // Process order event based on event type
                 $this->processOrderEvent($orderData, $metadata);
@@ -229,7 +227,11 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
             }
         }
 
-        $this->line("Batch processed: {$this->processed} orders, {$this->errors} errors");
+        $this->writeln(sprintf(
+            "<fg=green;options=bold>✔ Batch</> processed: <info>%d</info> orders · <fg=yellow>%d</fg=yellow> errors",
+            $this->processed,
+            $this->errors
+        ));
     }
 
     /**
@@ -314,7 +316,14 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
         // - Update inventory
         // - Generate analytics
         Log::info("Order created: {$orderId}");
-        $this->line("  ✓ Order created: {$orderId}");
+        $this->writeln(
+            sprintf(
+                "    <fg=green;options=bold>✓ Created</> <comment>#%s</comment> · user <info>%s</info> · total <info>%s</info>",
+                $orderId,
+                $orderData['user_id'] ?? 'N/A',
+                $this->formatCurrency($orderData['total'] ?? null)
+            )
+        );
 
         // TODO: Implement your business logic
         // Example:
@@ -336,7 +345,13 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
         $orderId = $orderData['order_id'];
         $changes = $orderData['changes'] ?? [];
 
-        $this->line("  ✓ Order updated: {$orderId}");
+        $this->writeln(
+            sprintf(
+                "    <fg=blue;options=bold>✓ Updated</> <comment>#%s</comment> · status <info>%s</info>",
+                $orderId,
+                $orderData['status'] ?? 'N/A'
+            )
+        );
 
         // TODO: Implement your business logic
         // Example:
@@ -354,7 +369,13 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
         $orderId = $orderData['order_id'];
         $trackingNumber = $orderData['tracking_number'] ?? null;
 
-        $this->line("  ✓ Order shipped: {$orderId}, Tracking: {$trackingNumber}");
+        $this->writeln(
+            sprintf(
+                "    <fg=magenta;options=bold>✓ Shipped</> <comment>#%s</comment> · tracking <info>%s</info>",
+                $orderId,
+                $trackingNumber ?? 'pending'
+            )
+        );
 
         // TODO: Implement your business logic
         // Example:
@@ -375,7 +396,12 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
     {
         $orderId = $orderData['order_id'];
 
-        $this->line("  ✓ Order delivered: {$orderId}");
+        $this->writeln(
+            sprintf(
+                "    <fg=green;options=bold>✓ Delivered</> <comment>#%s</comment>",
+                $orderId
+            )
+        );
 
         // TODO: Implement your business logic
         // Example:
@@ -397,7 +423,13 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
         $orderId = $orderData['order_id'];
         $reason = $orderData['reason'] ?? 'unknown';
 
-        $this->line("  ✓ Order cancelled: {$orderId}, Reason: {$reason}");
+        $this->writeln(
+            sprintf(
+                "    <fg=red;options=bold>✗ Cancelled</> <comment>#%s</comment> · reason <info>%s</info>",
+                $orderId,
+                $reason
+            )
+        );
 
         // TODO: Implement your business logic
         // Example:
@@ -422,5 +454,39 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
 
         // Log for investigation
         error_log("Unknown order event: {$event} for order {$orderId}");
+    }
+
+    /**
+     * Render a highlighted single-line summary of the order being processed.
+     *
+     * @param array<string, mixed> $orderData
+     */
+    private function renderOrderConsoleSummary(array $orderData): void
+    {
+        $orderId = $orderData['order_id'] ?? 'unknown';
+        $event = $orderData['event'] ?? 'unknown';
+        $userId = $orderData['user_id'] ?? 'N/A';
+        $total = $this->formatCurrency($orderData['total'] ?? null);
+
+        $this->writeln(sprintf(
+            "<fg=gray>[%s]</> <fg=cyan;options=bold>Order</> <comment>#%s</comment> · event <fg=yellow>%s</fg=yellow> · user <info>%s</info> · total <info>%s</info>",
+            date('H:i:s'),
+            $orderId,
+            $event,
+            $userId,
+            $total
+        ));
+    }
+
+    /**
+     * Format numeric totals so the console output stays consistent.
+     */
+    private function formatCurrency(mixed $value): string
+    {
+        if (!is_numeric($value)) {
+            return 'N/A';
+        }
+
+        return number_format((float) $value, 2);
     }
 }

@@ -222,6 +222,32 @@ php -S localhost:8000 -t public
 
 Visit `http://localhost:8000` in your browser.
 
+### Local Kafka (Order Tracking Demo)
+
+The order tracking consumer/producer example requires a Kafka cluster. A
+ready-to-use Docker Compose setup is included:
+
+```bash
+# Start ZooKeeper + Kafka
+docker compose up -d zookeeper kafka
+
+# Configure environment (after copying .env)
+echo "REALTIME_BROKER=kafka" >> .env
+echo "KAFKA_BROKERS=localhost:9092" >> .env
+
+# Create topic (optional, auto-create is enabled by default)
+docker exec -it project_topo_kafka kafka-topics.sh \
+  --create --topic orders.events \
+  --bootstrap-server localhost:9092 \
+  --partitions 10 --replication-factor 1
+
+# Run producer & consumer
+php console order:tracking:consume --max-messages=10
+curl "http://localhost:8081/api/orders/produce?event=order.created&order_id=123&user_id=456"
+```
+
+Logs for the consumer will appear under `storage/logs/<date>.log`.
+
 ### Hello World Example
 
 **routes/web.php:**
