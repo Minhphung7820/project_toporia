@@ -229,4 +229,37 @@ abstract class AbstractKafkaConsumer extends Command
             ]));
         }
     }
+
+    /**
+     * Render a styled Kafka log line similar to queue worker output.
+     *
+     * @param string $label   Short label (eg. MESSAGE, BATCH)
+     * @param string $message Message body (can contain ANSI tags)
+     * @param string $style   info|success|warn|error|debug
+     * @return void
+     */
+    protected function logKafkaEvent(string $label, string $message, string $style = 'info'): void
+    {
+        $timestamp = date('Y-m-d H:i:s');
+        $label = strtoupper($label);
+
+        $styleMap = [
+            'info' => 'fg=cyan;options=bold',
+            'success' => 'fg=green;options=bold',
+            'warn' => 'fg=yellow;options=bold',
+            'error' => 'fg=red;options=bold',
+            'debug' => 'fg=magenta;options=bold',
+        ];
+
+        $labelStyle = $styleMap[$style] ?? $styleMap['info'];
+        $formattedLabel = sprintf('<%s>%s</>', $labelStyle, str_pad($label, 9));
+        $line = sprintf('[%s] %s  %s', $timestamp, $formattedLabel, $message);
+
+        match ($style) {
+            'success' => $this->info($line),
+            'warn' => $this->warn($line),
+            'error' => $this->error($line),
+            default => $this->writeln($line),
+        };
+    }
 }

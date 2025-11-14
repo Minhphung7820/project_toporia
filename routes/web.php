@@ -19,6 +19,7 @@ use App\Presentation\Http\Controllers\ProductsController;
 use App\Presentation\Http\Controllers\FileUploadController;
 use App\Presentation\Http\Action\Product\CreateProductAction;
 use App\Jobs\TestRabbitMQJob;
+use Toporia\Framework\Support\Accessors\Log;
 
 /** @var Router $router */
 
@@ -257,7 +258,12 @@ $router->get('/api/orders/test', function (Request $request, Response $response)
 // Quick test route - GET để dễ test producer
 $router->get('/api/orders/produce', function (Request $request, Response $response) {
     $realtime = realtime();
-
+    Log::info('Producing order event', [
+        'event' => $request->query('event', 'order.created'),
+        'order_id' => $request->query('order_id', uniqid('order_', true)),
+        'user_id' => $request->query('user_id', rand(1, 1000)),
+        'total' => $request->query('total', rand(100, 10000)),
+    ]);
     // Get parameters from query string
     $event = $request->query('event', 'order.created');
     $orderId = $request->query('order_id', uniqid('order_', true));

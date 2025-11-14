@@ -182,4 +182,3 @@ return [
     */
     'manual_commit' => env('KAFKA_MANUAL_COMMIT', false),
 ];
-

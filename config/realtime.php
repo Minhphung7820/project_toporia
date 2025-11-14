@@ -131,6 +131,7 @@ return [
 
         'kafka' => [
             'driver' => 'kafka',
+            'client' => env('KAFKA_CLIENT', 'php'), // php, rdkafka, auto
             'brokers' => explode(',', env('KAFKA_BROKERS', 'localhost:9092')),
             'topic_prefix' => env('KAFKA_TOPIC_PREFIX', 'realtime'),
             'consumer_group' => env('KAFKA_CONSUMER_GROUP', 'realtime-servers'),
@@ -157,7 +158,9 @@ return [
             // Producer configuration (rdkafka format)
             // Optimized defaults for high performance
             'producer_config' => [
-                'compression.type' => env('KAFKA_COMPRESSION', 'snappy'), // snappy, gzip, lz4
+                // Leave compression unset by default for maximal compatibility.
+                // Set KAFKA_COMPRESSION to gzip/lz4 if your client supports it.
+                'compression.type' => env('KAFKA_COMPRESSION', ''),
                 'batch.size' => env('KAFKA_BATCH_SIZE', '16384'), // 16KB
                 'linger.ms' => env('KAFKA_LINGER_MS', '10'), // Wait 10ms for batch
                 'acks' => env('KAFKA_ACKS', '1'), // 1 = leader ack (balance between speed and durability)
@@ -170,7 +173,7 @@ return [
                 'session.timeout.ms' => '30000',
                 'max.poll.interval.ms' => '300000',
                 'fetch.min.bytes' => env('KAFKA_FETCH_MIN_BYTES', '1024'), // Min bytes per fetch
-                'fetch.max.wait.ms' => env('KAFKA_FETCH_MAX_WAIT_MS', '500'), // Max wait time
+                'fetch.wait.max.ms' => env('KAFKA_FETCH_MAX_WAIT_MS', '500'), // Max wait time
                 'max.partition.fetch.bytes' => env('KAFKA_MAX_PARTITION_FETCH_BYTES', '1048576'), // 1MB per partition
             ],
         ],

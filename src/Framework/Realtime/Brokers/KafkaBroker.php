@@ -119,6 +119,11 @@ final class KafkaBroker implements BrokerInterface
     private array $partitionCache = [];
 
     /**
+     * @var string Preferred Kafka client (auto|rdkafka|php)
+     */
+    private string $clientPreference = 'auto';
+
+    /**
      * @var bool Whether consumer loop is running
      */
     private bool $consuming = false;
@@ -177,6 +182,7 @@ final class KafkaBroker implements BrokerInterface
         $this->topicPrefix = $config['topic_prefix'] ?? 'realtime';
         $this->consumerGroup = $config['consumer_group'] ?? 'realtime-servers';
         $this->manualCommit = (bool) ($config['manual_commit'] ?? false);
+        $this->clientPreference = strtolower((string) ($config['client'] ?? 'auto'));
 
         // Initialize topic strategy
         $this->topicStrategy = TopicStrategyFactory::create($config);
@@ -197,24 +203,32 @@ final class KafkaBroker implements BrokerInterface
      */
     private function initialize(): void
     {
-        // Try to detect and initialize Kafka client
-        // Priority: enqueue/rdkafka > nmred/kafka-php
+        $client = $this->selectClient();
 
-        if (class_exists(\RdKafka\Producer::class)) {
-            // Using enqueue/rdkafka (librdkafka)
+        if ($client === 'rdkafka') {
             $this->initializeRdKafka();
-        } elseif (class_exists(\Kafka\Producer::class)) {
-            // Using nmred/kafka-php
+        } elseif ($client === 'php') {
             $this->initializeKafkaPhp();
         } else {
-            throw new \RuntimeException(
-                'Kafka client library not found. ' .
-                    'Please install one of: enqueue/rdkafka or nmred/kafka-php. ' .
-                    'Example: composer require enqueue/rdkafka'
-            );
+            throw new \RuntimeException('No supported Kafka client available.');
         }
 
         $this->connected = true;
+    }
+
+    /**
+     * Determine which Kafka client to use (rdkafka or nmred/php).
+     */
+    private function selectClient(): string
+    {
+        $rdkafkaAvailable = class_exists(\RdKafka\Producer::class);
+        $phpClientAvailable = class_exists(\Kafka\Producer::class);
+
+        return match ($this->clientPreference) {
+            'rdkafka' => $rdkafkaAvailable ? 'rdkafka' : ($phpClientAvailable ? 'php' : ''),
+            'php', 'kafka-php', 'nmred' => $phpClientAvailable ? 'php' : ($rdkafkaAvailable ? 'rdkafka' : ''),
+            default => $rdkafkaAvailable ? 'rdkafka' : ($phpClientAvailable ? 'php' : ''),
+        };
     }
 
     /**
@@ -228,13 +242,13 @@ final class KafkaBroker implements BrokerInterface
         $consumerConfig = new \RdKafka\Conf();
 
         // Apply custom producer config
-        $producerConfigArray = $this->config['producer_config'] ?? [];
+        $producerConfigArray = $this->sanitizeKafkaConfig($this->config['producer_config'] ?? []);
         foreach ($producerConfigArray as $key => $value) {
             $producerConfig->set($key, (string) $value);
         }
 
         // Apply custom consumer config
-        $consumerConfigArray = $this->config['consumer_config'] ?? [];
+        $consumerConfigArray = $this->sanitizeKafkaConfig($this->config['consumer_config'] ?? []);
         foreach ($consumerConfigArray as $key => $value) {
             $consumerConfig->set($key, (string) $value);
         }
@@ -246,14 +260,17 @@ final class KafkaBroker implements BrokerInterface
         $consumerConfig->set('enable.auto.commit', $this->manualCommit ? 'false' : 'true');
         $consumerConfig->set('auto.offset.reset', 'earliest');
 
-        // Performance optimizations
-        $consumerConfig->set('fetch.min.bytes', '1024'); // Min bytes per fetch
-        $consumerConfig->set('fetch.max.wait.ms', '500'); // Max wait time
+        // Build broker list once (validated in constructor)
+        $brokerList = implode(',', $this->brokers);
 
         // Create producer
         $producer = new \RdKafka\Producer($producerConfig);
-        $producer->addBrokers(implode(',', $this->brokers));
+        $producer->addBrokers($brokerList);
         $this->producer = $producer;
+
+        // Ensure consumer config knows how to reach the cluster
+        $consumerConfig->set('bootstrap.servers', $brokerList);
+        $consumerConfig->set('metadata.broker.list', $brokerList);
 
         // Create consumer (will be initialized when subscribing)
         $this->consumer = new \RdKafka\KafkaConsumer($consumerConfig);
@@ -307,11 +324,11 @@ final class KafkaBroker implements BrokerInterface
         }
 
         // Apply producer config with performance optimizations
-        $producerConfigArray = $this->config['producer_config'] ?? [];
+        $producerConfigArray = $this->sanitizeKafkaConfig($this->config['producer_config'] ?? []);
 
         // Set default performance optimizations if not specified
         if (!isset($producerConfigArray['compression.type'])) {
-            $producerConfigArray['compression.type'] = 'snappy'; // Fast compression
+            $producerConfigArray['compression.type'] = 'gzip'; // Safe default compression
         }
         if (!isset($producerConfigArray['batch.size'])) {
             $producerConfigArray['batch.size'] = '16384'; // 16KB batch
@@ -425,7 +442,6 @@ final class KafkaBroker implements BrokerInterface
         $originalErrorHandler = set_error_handler(function ($errno, $errstr, $errfile, $errline) {
             // Suppress precision loss warnings from Kafka library (handled internally)
             if (str_contains($errstr, 'Implicit conversion') || str_contains($errstr, 'loses precision')) {
-                error_log("Kafka precision warning suppressed during publish: {$errstr}");
                 return true; // Suppress the error
             }
             return false; // Let other errors through
@@ -460,10 +476,7 @@ final class KafkaBroker implements BrokerInterface
             }
         } catch (\TypeError $e) {
             // Handle precision loss errors from Kafka library
-            if (str_contains($e->getMessage(), 'Implicit conversion') || str_contains($e->getMessage(), 'loses precision')) {
-                error_log("Kafka precision error suppressed during publish: {$e->getMessage()}");
-                // Continue - Kafka library will handle large values internally
-            } else {
+            if (!str_contains($e->getMessage(), 'Implicit conversion') && !str_contains($e->getMessage(), 'loses precision')) {
                 throw $e; // Re-throw other TypeErrors
             }
         } finally {
@@ -664,7 +677,6 @@ final class KafkaBroker implements BrokerInterface
         $originalErrorHandler = set_error_handler(function ($errno, $errstr, $errfile, $errline) use (&$originalErrorHandler) {
             // Suppress precision loss warnings for Kafka offsets (they're handled internally)
             if (str_contains($errstr, 'Implicit conversion') || str_contains($errstr, 'loses precision')) {
-                error_log("Kafka offset precision warning suppressed: {$errstr}");
                 return true; // Suppress the error
             }
             // Call original error handler for other errors
@@ -954,15 +966,11 @@ final class KafkaBroker implements BrokerInterface
                     } catch (\TypeError $e) {
                         // Handle precision loss warning for very large offsets
                         // This can happen with 64-bit offsets on 32-bit PHP or with very large offset values
-                        error_log("Offset precision issue (offset may be too large): {$e->getMessage()}");
                         // Try to commit asynchronously or skip commit for this message
                         // The consumer will still process messages correctly
                     } catch (\Throwable $e) {
                         // Catch any other errors during commit (including precision warnings)
-                        if (str_contains($e->getMessage(), 'Implicit conversion') || str_contains($e->getMessage(), 'loses precision')) {
-                            // Suppress precision warnings - Kafka will handle large offsets internally
-                            error_log("Offset precision warning suppressed: {$e->getMessage()}");
-                        } else {
+                        if (!str_contains($e->getMessage(), 'Implicit conversion') && !str_contains($e->getMessage(), 'loses precision')) {
                             error_log("Error committing offset: {$e->getMessage()}");
                         }
                     }
@@ -970,11 +978,6 @@ final class KafkaBroker implements BrokerInterface
             } catch (\Throwable $e) {
                 // Don't commit on error - message will be retried
                 // Suppress precision warnings from message property access
-                if (str_contains($e->getMessage(), 'Implicit conversion') || str_contains($e->getMessage(), 'loses precision')) {
-                    // This is a warning, not a real error - continue processing
-                    error_log("Precision warning suppressed: {$e->getMessage()}");
-                    continue;
-                }
                 error_log("Error processing message: {$e->getMessage()}");
                 throw $e; // Re-throw to trigger DLQ
             }
@@ -1061,6 +1064,28 @@ final class KafkaBroker implements BrokerInterface
 
         // For grouped topics, try to extract from message or use topic name
         return $topicName;
+    }
+
+    /**
+     * Remove invalid/sentinel config values before passing to Kafka clients.
+     *
+     * @param array $config
+     * @return array
+     */
+    private function sanitizeKafkaConfig(array $config): array
+    {
+        foreach (['compression.type', 'compression.codec'] as $compressionKey) {
+            if (!isset($config[$compressionKey])) {
+                continue;
+            }
+
+            $value = (string) $config[$compressionKey];
+            if ($value === '' || strcasecmp($value, 'none') === 0 || strcasecmp($value, 'off') === 0) {
+                unset($config[$compressionKey]);
+            }
+        }
+
+        return $config;
     }
 
     /**
