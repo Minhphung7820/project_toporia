@@ -240,4 +240,3 @@ final class RedisEventConsumerCommand extends AbstractBatchRedisConsumer impleme
         return array_unique($channels);
     }
 }
-

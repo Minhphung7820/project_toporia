@@ -240,4 +240,3 @@ final class RabbitMqEventConsumerCommand extends AbstractBatchRabbitMqConsumer i
         return array_unique($channels);
     }
 }
-
