@@ -141,7 +141,7 @@ return [
 
         'kafka' => [
             'driver' => 'kafka',
-            'client' => env('KAFKA_CLIENT', 'php'), // php, rdkafka, auto
+            'client' => env('KAFKA_CLIENT', 'auto'), // php, rdkafka, auto (auto = prefer rdkafka)
             'brokers' => explode(',', env('KAFKA_BROKERS', 'localhost:9092')),
             'topic_prefix' => env('KAFKA_TOPIC_PREFIX', 'realtime'),
             'consumer_group' => env('KAFKA_CONSUMER_GROUP', 'realtime-servers'),
