@@ -77,7 +77,7 @@ final class ConsoleServiceProvider extends ServiceProvider
       \Toporia\Framework\Console\Commands\RealtimeRabbitMqConsumerCommand::class,
 
       // Search
-      \Toporia\Framework\Search\Console\ReindexSearchCommand::class,
+      \Toporia\Framework\Console\Commands\ReindexSearchCommand::class,
 
       // Development server
       \Toporia\Framework\Console\Commands\ServeCommand::class,

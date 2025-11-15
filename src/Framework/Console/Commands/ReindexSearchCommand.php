@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Toporia\Framework\Search\Console;
+namespace Toporia\Framework\Console\Commands;
 
 use Toporia\Framework\Console\Command;
 use Toporia\Framework\Search\Contracts\SearchIndexerInterface;
@@ -18,7 +18,7 @@ final class ReindexSearchCommand extends Command
         private readonly SearchManager $manager,
         private readonly SearchIndexerInterface $indexer,
     ) {
-        parent::__construct();
+        // Note: Command class doesn't have a constructor, so no parent::__construct() call needed
     }
 
     public function handle(): int
@@ -58,3 +58,4 @@ final class ReindexSearchCommand extends Command
         return 0; // Exit code: success
     }
 }
+

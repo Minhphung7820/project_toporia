@@ -26,13 +26,14 @@ final class SearchServiceProvider extends ServiceProvider
             $builder = ClientBuilder::create()
                 ->setHosts($config['hosts'] ?? ['http://localhost:9200'])
                 ->setRetries($config['retries'] ?? 2)
-                ->setSSLVerification($config['ssl_verification'] ?? true)
-                ->setConnectionParams([
-                    'client' => [
-                        'timeout' => $config['request_timeout'] ?? 2.0,
-                        'connect_timeout' => $config['request_timeout'] ?? 2.0,
-                    ],
-                ]);
+                ->setSSLVerification($config['ssl_verification'] ?? true);
+
+            // Set HTTP client options (timeout, connect_timeout, etc.)
+            $requestTimeout = $config['request_timeout'] ?? 2.0;
+            $builder->setHttpClientOptions([
+                'timeout' => $requestTimeout,
+                'connect_timeout' => $requestTimeout,
+            ]);
 
             if (!empty($config['username']) && !empty($config['password'])) {
                 $builder->setBasicAuthentication($config['username'], $config['password']);
