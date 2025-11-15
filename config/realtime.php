@@ -192,7 +192,7 @@ return [
                 // Metadata refresh settings to avoid "Unknown topic or partition" errors
                 'metadata.max.age.ms' => env('KAFKA_METADATA_MAX_AGE_MS', '300000'), // 5 minutes
                 'topic.metadata.refresh.interval.ms' => env('KAFKA_TOPIC_METADATA_REFRESH_MS', '300000'), // 5 minutes
-                'metadata.request.timeout.ms' => env('KAFKA_METADATA_REQUEST_TIMEOUT_MS', '60000'), // 60 seconds
+                // Note: metadata.request.timeout.ms is deprecated in rdkafka and not used
             ],
         ],
     ],

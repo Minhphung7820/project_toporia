@@ -12,6 +12,28 @@ declare(strict_types=1);
 return [
     /*
     |--------------------------------------------------------------------------
+    | Kafka Bootstrap Server
+    |--------------------------------------------------------------------------
+    |
+    | Bootstrap server address for Kafka operations.
+    | For Docker: use internal network address (kafka:29092) or localhost:29092
+    | For host: use localhost:9092
+    |
+    */
+    'bootstrap_server' => env('KAFKA_BOOTSTRAP_SERVER', 'localhost:29092'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Docker Kafka Container Name
+    |--------------------------------------------------------------------------
+    |
+    | Docker container name for Kafka.
+    |
+    */
+    'kafka_container' => env('KAFKA_CONTAINER', 'project_topo_kafka'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Default Offset Reset
     |--------------------------------------------------------------------------
     |

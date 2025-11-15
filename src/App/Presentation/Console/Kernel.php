@@ -39,6 +39,9 @@ final class Kernel
             // Business logic consumers
             \App\Console\Commands\OrderTrackingConsumerCommand::class,
 
+            // Kafka topic management
+            \App\Console\Commands\KafkaTopicManagerCommand::class,
+
             // Add your custom application commands here...
             // Example:
             // \App\Console\Commands\SendNewsletterCommand::class,
