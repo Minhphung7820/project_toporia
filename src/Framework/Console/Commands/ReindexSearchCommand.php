@@ -58,4 +58,3 @@ final class ReindexSearchCommand extends Command
         return 0; // Exit code: success
     }
 }
-
