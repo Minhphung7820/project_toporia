@@ -210,9 +210,35 @@ final class OrderTrackingConsumerCommand extends AbstractBatchKafkaConsumer impl
                         $e,
                         $metadata,
                         function (string $dlqTopic, string $payload) {
-                            // Publish to DLQ topic
-                            error_log("DLQ: Would publish to {$dlqTopic}: {$payload}");
-                            // TODO: Implement DLQ publishing
+                            // Publish to DLQ topic (ACTUAL IMPLEMENTATION)
+                            try {
+                                $broker = $this->getBroker();
+
+                                // Create DLQ message with error metadata
+                                $dlqMessage = \Toporia\Framework\Realtime\Message::event(
+                                    $dlqTopic,
+                                    'dlq.message',
+                                    [
+                                        'original_payload' => $payload,
+                                        'error_timestamp' => date('Y-m-d H:i:s'),
+                                        'retry_count' => $metadata['retry_count'] ?? 0,
+                                    ]
+                                );
+
+                                // Publish to DLQ topic via broker
+                                $broker->publish($dlqTopic, $dlqMessage);
+
+                                Log::warning("DLQ: Published failed message to {$dlqTopic}", [
+                                    'topic' => $dlqTopic,
+                                    'retry_count' => $metadata['retry_count'] ?? 0,
+                                ]);
+                            } catch (\Throwable $dlqError) {
+                                // Fallback: Log to file if DLQ publish fails
+                                Log::error("DLQ: Failed to publish to {$dlqTopic}: {$dlqError->getMessage()}", [
+                                    'payload' => $payload,
+                                    'error' => $dlqError->getMessage(),
+                                ]);
+                            }
                         }
                     );
 

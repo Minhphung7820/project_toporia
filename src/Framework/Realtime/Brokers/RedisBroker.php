@@ -44,6 +44,16 @@ final class RedisBroker implements BrokerInterface
         array $config = [],
         private readonly ?RealtimeManager $manager = null
     ) {
+        // Runtime check: Ensure Redis extension is loaded
+        if (!extension_loaded('redis')) {
+            throw new \RuntimeException(
+                "Redis extension is not installed. Please install it:\n" .
+                "  Ubuntu/Debian: sudo apt-get install php-redis\n" .
+                "  macOS: pecl install redis\n" .
+                "  See EXTENSION_SETUP.md for detailed instructions."
+            );
+        }
+
         $this->redis = new \Redis();
         $this->subscriber = new \Redis();
 

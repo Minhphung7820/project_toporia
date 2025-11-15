@@ -14,12 +14,14 @@
     "jetbrains/phpstorm-stubs": "*"
   },
   "suggest": {
-    "ext-redis": "Required for Redis cache and queue drivers",
+    "ext-redis": "Required for Redis Pub/Sub broker and cache driver (native C performance)",
+    "ext-rdkafka": "Required for high-performance Kafka broker (10-50x faster than pure PHP, requires librdkafka C library)",
     "ext-pdo_mysql": "Required for MySQL database support",
     "ext-pdo_pgsql": "Required for PostgreSQL database support",
-    "php-amqplib/php-amqplib": "Required for RabbitMQ queue driver",
-    "enqueue/rdkafka": "Required for Kafka realtime broker (high performance, requires librdkafka extension)",
-    "nmred/kafka-php": "Alternative Kafka client library (pure PHP, no C extension required)"
+    "ext-amqp": "Optional for RabbitMQ performance boost (php-amqplib pure PHP works well)",
+    "enqueue/rdkafka": "High-performance Kafka client (requires ext-rdkafka)",
+    "php-amqplib/php-amqplib": "Pure PHP AMQP client for RabbitMQ (already installed)",
+    "nmred/kafka-php": "Pure PHP Kafka client (already installed, fallback if ext-rdkafka unavailable)"
   },
   "autoload": {
     "psr-4": {

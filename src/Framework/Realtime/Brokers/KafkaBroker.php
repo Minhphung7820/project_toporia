@@ -218,17 +218,43 @@ final class KafkaBroker implements BrokerInterface
 
     /**
      * Determine which Kafka client to use (rdkafka or nmred/php).
+     *
+     * @return string Client name ('rdkafka' or 'php')
+     * @throws \RuntimeException If no Kafka client is available
      */
     private function selectClient(): string
     {
-        $rdkafkaAvailable = class_exists(\RdKafka\Producer::class);
+        $rdkafkaAvailable = extension_loaded('rdkafka') && class_exists(\RdKafka\Producer::class);
         $phpClientAvailable = class_exists(\Kafka\Producer::class);
 
-        return match ($this->clientPreference) {
+        // Runtime check: Ensure at least one Kafka client is available
+        if (!$rdkafkaAvailable && !$phpClientAvailable) {
+            throw new \RuntimeException(
+                "No Kafka client library found. Please install one of:\n" .
+                "  Option 1 (Recommended): Install rdkafka extension + enqueue/rdkafka\n" .
+                "    - sudo apt-get install librdkafka-dev\n" .
+                "    - sudo pecl install rdkafka\n" .
+                "    - composer require enqueue/rdkafka\n" .
+                "  Option 2: nmred/kafka-php is already in composer.json\n" .
+                "    - composer install (should already be installed)\n" .
+                "  See EXTENSION_SETUP.md for detailed instructions."
+            );
+        }
+
+        $client = match ($this->clientPreference) {
             'rdkafka' => $rdkafkaAvailable ? 'rdkafka' : ($phpClientAvailable ? 'php' : ''),
             'php', 'kafka-php', 'nmred' => $phpClientAvailable ? 'php' : ($rdkafkaAvailable ? 'rdkafka' : ''),
             default => $rdkafkaAvailable ? 'rdkafka' : ($phpClientAvailable ? 'php' : ''),
         };
+
+        // Log which client is being used
+        if ($client === 'rdkafka') {
+            error_log('[Kafka] Using rdkafka extension (high performance)');
+        } elseif ($client === 'php') {
+            error_log('[Kafka] Using nmred/kafka-php (pure PHP)');
+        }
+
+        return $client;
     }
 
     /**
