@@ -90,8 +90,9 @@ COPY . .
 RUN composer dump-autoload --optimize --classmap-authoritative
 
 # Set permissions
-RUN chown -R www-data:www-data /var/www/html/storage \
-    /var/www/html/bootstrap/cache
+RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
 
 # Expose port 9000 for PHP-FPM
 EXPOSE 9000
