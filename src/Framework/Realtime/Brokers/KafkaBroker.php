@@ -231,13 +231,13 @@ final class KafkaBroker implements BrokerInterface
         if (!$rdkafkaAvailable && !$phpClientAvailable) {
             throw new \RuntimeException(
                 "No Kafka client library found. Please install one of:\n" .
-                "  Option 1 (Recommended): Install rdkafka extension + enqueue/rdkafka\n" .
-                "    - sudo apt-get install librdkafka-dev\n" .
-                "    - sudo pecl install rdkafka\n" .
-                "    - composer require enqueue/rdkafka\n" .
-                "  Option 2: nmred/kafka-php is already in composer.json\n" .
-                "    - composer install (should already be installed)\n" .
-                "  See EXTENSION_SETUP.md for detailed instructions."
+                    "  Option 1 (Recommended): Install rdkafka extension + enqueue/rdkafka\n" .
+                    "    - sudo apt-get install librdkafka-dev\n" .
+                    "    - sudo pecl install rdkafka\n" .
+                    "    - composer require enqueue/rdkafka\n" .
+                    "  Option 2: nmred/kafka-php is already in composer.json\n" .
+                    "    - composer install (should already be installed)\n" .
+                    "  See EXTENSION_SETUP.md for detailed instructions."
             );
         }
 
@@ -289,9 +289,13 @@ final class KafkaBroker implements BrokerInterface
         // Build broker list once (validated in constructor)
         $brokerList = implode(',', $this->brokers);
 
+        // Set bootstrap.servers for producer (required for rdkafka)
+        $producerConfig->set('bootstrap.servers', $brokerList);
+        $producerConfig->set('metadata.broker.list', $brokerList);
+
         // Create producer
         $producer = new \RdKafka\Producer($producerConfig);
-        $producer->addBrokers($brokerList);
+        $producer->addBrokers($brokerList); // Legacy method, kept for compatibility
         $this->producer = $producer;
 
         // Ensure consumer config knows how to reach the cluster
@@ -691,6 +695,14 @@ final class KafkaBroker implements BrokerInterface
         try {
             $consumer->subscribe($topics);
             error_log("Kafka consumer subscribed successfully");
+
+            // Wait a bit for metadata to be refreshed after subscription
+            // This helps avoid "Unknown topic or partition" errors
+            usleep(500000); // 500ms delay to allow metadata refresh
+
+            // Force metadata refresh by doing a quick poll
+            // This ensures metadata is up-to-date before we start consuming
+            $consumer->consume(100); // Quick poll to trigger metadata refresh
         } catch (\Throwable $e) {
             error_log("Kafka consumer subscribe error: {$e->getMessage()}");
             throw $e;
@@ -755,6 +767,13 @@ final class KafkaBroker implements BrokerInterface
                     case RD_KAFKA_RESP_ERR__TIMED_OUT:
                         // Timeout (normal, continue)
                         // Already logged above
+                        break;
+
+                    case RD_KAFKA_RESP_ERR_UNKNOWN_TOPIC_OR_PART:
+                        // Unknown topic or partition - usually means metadata needs refresh
+                        error_log("Kafka consumer error: Unknown topic or partition (code: {$message->err}). This usually resolves after metadata refresh.");
+                        // Wait a bit and let metadata refresh
+                        usleep(1000000); // 1 second delay
                         break;
 
                     default:

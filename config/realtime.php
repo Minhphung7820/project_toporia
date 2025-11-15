@@ -168,6 +168,8 @@ return [
             // Producer configuration (rdkafka format)
             // Optimized defaults for high performance
             'producer_config' => [
+                // Security protocol - must match Kafka listener configuration
+                'security.protocol' => env('KAFKA_SECURITY_PROTOCOL', 'plaintext'),
                 // Leave compression unset by default for maximal compatibility.
                 // Set KAFKA_COMPRESSION to gzip/lz4 if your client supports it.
                 'compression.type' => env('KAFKA_COMPRESSION', ''),
@@ -185,6 +187,12 @@ return [
                 'fetch.min.bytes' => env('KAFKA_FETCH_MIN_BYTES', '1024'), // Min bytes per fetch
                 'fetch.wait.max.ms' => env('KAFKA_FETCH_MAX_WAIT_MS', '500'), // Max wait time
                 'max.partition.fetch.bytes' => env('KAFKA_MAX_PARTITION_FETCH_BYTES', '1048576'), // 1MB per partition
+                // Security protocol - must match Kafka listener configuration
+                'security.protocol' => env('KAFKA_SECURITY_PROTOCOL', 'plaintext'),
+                // Metadata refresh settings to avoid "Unknown topic or partition" errors
+                'metadata.max.age.ms' => env('KAFKA_METADATA_MAX_AGE_MS', '300000'), // 5 minutes
+                'topic.metadata.refresh.interval.ms' => env('KAFKA_TOPIC_METADATA_REFRESH_MS', '300000'), // 5 minutes
+                'metadata.request.timeout.ms' => env('KAFKA_METADATA_REQUEST_TIMEOUT_MS', '60000'), // 60 seconds
             ],
         ],
     ],
