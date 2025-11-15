@@ -49,6 +49,8 @@ $errorHandler->register();
 |
 */
 
+// Load environment variables from .env file (if exists)
+// Also merge with existing environment variables (from Docker, system, etc.)
 $envFile = dirname(__DIR__) . '/.env';
 if (file_exists($envFile)) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -73,8 +75,21 @@ if (file_exists($envFile)) {
                 return $_ENV[$m[1]] ?? '';
             }, $value);
 
+            // Only set if not already set (Docker env vars take precedence)
+            if (!isset($_ENV[$key])) {
+                $_ENV[$key] = $value;
+                putenv("{$key}={$value}");
+            }
+        }
+    }
+}
+
+// Merge system environment variables into $_ENV (for Docker, etc.)
+// This ensures Docker environment variables are available
+foreach ($_SERVER as $key => $value) {
+    if (strpos($key, 'HTTP_') !== 0 && is_string($value)) {
+        if (!isset($_ENV[$key])) {
             $_ENV[$key] = $value;
-            putenv("{$key}={$value}");
         }
     }
 }
