@@ -96,7 +96,7 @@ final class UserCreatedNotification extends Notification
      */
     private function url(string $path): string
     {
-        $baseUrl = env('APP_URL', 'http://localhost:8081');
+        $baseUrl = env('APP_URL', 'http://localhost:8000');
         return rtrim($baseUrl, '/') . '/' . ltrim($path, '/');
     }
 }

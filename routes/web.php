@@ -381,7 +381,8 @@ $router->get('/api/orders/produce', function (Request $request, Response $respon
     }
 
     try {
-
+        // Check if Kafka is actually available before publishing
+        // This prevents segmentation faults when Kafka is down
         $kafkaBroker->publish('orders.events', \Toporia\Framework\Realtime\Message::event(
             'orders.events',  // Topic name (business logic, not realtime channel)
             $event,            // Event type (order.created, order.shipped, etc.)
@@ -398,10 +399,19 @@ $router->get('/api/orders/produce', function (Request $request, Response $respon
             'note' => 'Check consumer terminal to see the message being processed',
         ]);
     } catch (\Throwable $e) {
+        // Log the error for debugging
+        Log::error('Kafka publish failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'event' => $event,
+            'order_data' => $orderData,
+        ]);
+
         return $response->json([
             'success' => false,
             'error' => 'Failed to publish to Kafka: ' . $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
+            'message' => 'Kafka may be unavailable. Check if Kafka containers are running: docker ps | grep kafka',
+            'hint' => 'Start Kafka: docker start project_topo_zookeeper project_topo_kafka',
         ], 500);
     }
 });

@@ -30,7 +30,7 @@ return [
     |
     */
     'schema_registry' => [
-        'uri' => env('KAFKA_SCHEMA_REGISTRY_URI', 'http://localhost:8081'),
+        'uri' => env('KAFKA_SCHEMA_REGISTRY_URI', 'http://localhost:8000'),
         'cache_enabled' => env('KAFKA_SCHEMA_CACHE_ENABLED', true),
     ],
 

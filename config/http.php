@@ -75,7 +75,7 @@ return [
         // Example: Internal Microservice
         'microservice' => [
             'driver' => 'rest',
-            'base_url' => env('MICROSERVICE_URL', 'http://localhost:8081'),
+            'base_url' => env('MICROSERVICE_URL', 'http://localhost:8000'),
             'headers' => [
                 'X-API-Key' => env('MICROSERVICE_API_KEY', ''),
             ],

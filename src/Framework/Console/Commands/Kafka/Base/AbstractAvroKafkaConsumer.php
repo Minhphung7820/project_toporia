@@ -43,7 +43,7 @@ abstract class AbstractAvroKafkaConsumer extends AbstractKafkaConsumer
      */
     protected function getSchemaRegistryUri(): string
     {
-        return config('kafka.schema_registry.uri', env('KAFKA_SCHEMA_REGISTRY_URI', 'http://localhost:8081'));
+        return config('kafka.schema_registry.uri', env('KAFKA_SCHEMA_REGISTRY_URI', 'http://localhost:8000'));
     }
 
     /**
