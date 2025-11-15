@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Presentation\Http\Controllers;
 
-use App\Domain\Product\ProductModel;
-use App\Domain\User\UserModel;
+use App\Infrastructure\Persistence\Models\ProductModel;
+use App\Infrastructure\Persistence\Models\UserModel;
 use App\Jobs\SendEmailJob;
 use App\Jobs\TestProcess;
 use App\Notifications\UserCreatedNotification;

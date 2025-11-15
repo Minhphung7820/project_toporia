@@ -21,13 +21,13 @@ declare(strict_types=1);
  */
 
 return [
-    // Product Model Observers
-    \App\Domain\Product\ProductModel::class => [
+    // Product Model Observers (Infrastructure Layer)
+    \App\Infrastructure\Persistence\Models\ProductModel::class => [
         \App\Observers\ProductObserver::class,
     ],
 
     // Add more observers here
-    // \App\Domain\User\UserModel::class => [
+    // \App\Infrastructure\Persistence\Models\UserModel::class => [
     //     \App\Observers\UserObserver::class,
     // ],
 ];

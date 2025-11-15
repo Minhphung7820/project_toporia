@@ -7,10 +7,10 @@ namespace App\Observers;
 use Toporia\Framework\Observer\AbstractObserver;
 use Toporia\Framework\Observer\Contracts\ObservableInterface;
 use Toporia\Framework\Support\Accessors\Log;
-use App\Domain\Product\ProductModel;
+use App\Infrastructure\Persistence\Models\ProductModel;
 
 /**
- * Product Observer
+ * Product Observer (Infrastructure Layer)
  *
  * Example observer for ProductModel that demonstrates observer pattern usage.
  *

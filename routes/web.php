@@ -113,7 +113,7 @@ $router->get('/api/products/search', function (Request $request, Response $respo
     $searchQuery->paginate($page, $perPage);
 
     // Execute search
-    $index = \App\Domain\Product\ProductModel::searchIndexName();
+    $index = \App\Infrastructure\Persistence\Models\ProductModel::searchIndexName();
     $results = $search->search($index, $searchQuery->toArray());
 
     // Format response

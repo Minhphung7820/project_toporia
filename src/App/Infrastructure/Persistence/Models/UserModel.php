@@ -2,24 +2,27 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\User;
+namespace App\Infrastructure\Persistence\Models;
 
 use Toporia\Framework\Database\ORM\Model;
 use Toporia\Framework\Notification\Contracts\NotifiableInterface;
 use Toporia\Framework\Notification\Notifiable;
 
 /**
- * User ORM Model - Demo of Auto Table Name & Auto-Fillable.
+ * User ORM Model (Infrastructure Layer).
+ *
+ * This is the Active Record implementation for database persistence.
+ * Located in Infrastructure layer as it depends on framework components.
+ *
+ * Clean Architecture:
+ * - This class belongs to Infrastructure layer
+ * - Should NOT be used directly by controllers
+ * - Should be accessed through Repository implementations
  *
  * This model demonstrates convention over configuration:
  * - NO $table property -> auto-inferred as "users" (from UserModel)
  * - NO $fillable property -> ALL fields are fillable
  * - NO $guarded property -> inherits empty array (auto-fillable)
- *
- * Benefits:
- * - Less boilerplate code
- * - Follows Laravel conventions
- * - Easy to override when needed
  *
  * Features:
  * - Notifiable: Can send/receive notifications via email, database, etc.

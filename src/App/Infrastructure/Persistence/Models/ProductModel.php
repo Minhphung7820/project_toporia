@@ -2,16 +2,22 @@
 
 declare(strict_types=1);
 
-namespace App\Domain\Product;
+namespace App\Infrastructure\Persistence\Models;
 
 use Toporia\Framework\Database\ORM\Model;
 use Toporia\Framework\Search\Searchable;
 use Toporia\Framework\Search\Contracts\SearchableModelInterface;
 
 /**
- * Product ORM Model.
+ * Product ORM Model (Infrastructure Layer).
  *
- * Represents a product entity with Active Record pattern.
+ * This is the Active Record implementation for database persistence.
+ * Located in Infrastructure layer as it depends on framework components.
+ *
+ * Clean Architecture:
+ * - This class belongs to Infrastructure layer
+ * - Should NOT be used directly by controllers
+ * - Should be accessed through Repository implementations
  *
  * Connection Configuration:
  * - By default, uses the global default connection
